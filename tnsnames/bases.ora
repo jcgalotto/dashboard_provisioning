@@ -1,0 +1,34 @@
+ARTPROD.WORLD=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=melideo.claro.amx)(PORT=1521))(CONNECT_DATA=(SID=ARTPROD)))
+
+UYTPROD.WORLD=(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(Host=melideo.claro.amx)(Port=1521)))(CONNECT_DATA=(SID=UYTPROD)))
+
+
+PYTPROD.WORLD =
+  (DESCRIPTION =
+    (ADDRESS_LIST =
+      (ADDRESS = (PROTOCOL = TCP)(HOST = melideo.claro.amx)(PORT = 1521))
+    )
+    (CONNECT_DATA =
+      (SID = PYTPROD)
+    )
+  ) 
+
+ARTPROD19.world=(DESCRIPTION=
+           (ADDRESS_LIST=
+             (ADDRESS=(COMMUNITY=tcp.world)(PROTOCOL=TCP)(Host=melideo19.claro.amx)(Port=1521))
+            )
+            (CONNECT_DATA=(SID=ARTPROD))
+           ) 
+		   
+PYTPROD19.world=(DESCRIPTION=
+           (ADDRESS_LIST=
+             (ADDRESS=(COMMUNITY=tcp.world)(PROTOCOL=TCP)(Host=melideopy19.claro.amx)(Port=1521))
+            )
+            (CONNECT_DATA=(SID=ARTPROD))
+           ) 
+UYTPROD19.world=(DESCRIPTION=
+           (ADDRESS_LIST=
+             (ADDRESS=(COMMUNITY=tcp.world)(PROTOCOL=TCP)(Host=melideouy19.claro.amx)(Port=1521))
+            )
+            (CONNECT_DATA=(SID=ARTPROD))
+           ) 
