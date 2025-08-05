@@ -1,4 +1,3 @@
-
 import streamlit as st
 from config.db_config import get_connection
 from data.query_builder import build_query
@@ -9,22 +8,19 @@ import datetime
 st.set_page_config(page_title="Dashboard Provisioning", layout="wide")
 st.title("📊 Dashboard Provisioning")
 
-# Configuraciones de conexión
-conexion_config = {
-"ARTPROD.WORLD": { "host": "melideo.claro.amx", "port": "1521", "service_name": "ARTPROD" }, "UYTPROD.WORLD": { "host": "melideo.claro.amx", "port": "1521", "service_name": "UYTPROD" }, "PYTPROD.WORLD": { "host": "melideo.claro.amx", "port": "1521", "service_name": "PYTPROD" }, "ARTPROD19.world": { "host": "melideo19.claro.amx", "port": "1521", "service_name": "ARTPROD" }, "PYTPROD19.world": { "host": "melideopy19.claro.amx", "port": "1521", "service_name": "ARTPROD" }
-}
-
+# Configuración de conexión
 with st.sidebar:
     st.header("🔐 Conexión Oracle")
-    selected_conn = st.selectbox("Selecciona conexión", list(conexion_config.keys()))
+    host = st.text_input("Host")
+    port = st.text_input("Puerto")
+    service_name = st.text_input("Service Name")
     user = st.text_input("Usuario")
     password = st.text_input("Contraseña", type="password")
     if st.button("Conectar"):
-        conf = conexion_config[selected_conn]
-        st.session_state["connection_name"] = selected_conn
-        conn = get_connection(conf["host"], conf["port"], conf["service_name"], user, password)
+        st.session_state["connection_name"] = f"{host}:{port}/{service_name}"
+        conn = get_connection(host, port, service_name, user, password)
         if conn:
-            st.success(f"✅ Conectado a {selected_conn}")
+            st.success(f"✅ Conectado a {st.session_state['connection_name']}")
 
 # Mostrar log de conexión
 if "connection_name" in st.session_state:
