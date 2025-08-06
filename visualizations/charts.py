@@ -1,4 +1,3 @@
-
 import streamlit as st
 import plotly.express as px
 
@@ -24,3 +23,4 @@ def error_bar_chart(df):
     conteo = errores["pri_error_code"].value_counts().reset_index()
     conteo.columns = ["Código Error", "Cantidad"]
     return px.bar(conteo, x="Código Error", y="Cantidad", title="Errores por Código", color="Cantidad")
+
