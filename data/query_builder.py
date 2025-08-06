@@ -2,14 +2,15 @@
 """Helpers to construct SQL queries with optional filters."""
 
 
-def build_query(fecha_ini, fecha_fin, ne_id=None):
+def build_query(fecha_ini, fecha_fin, ne_id=None, action=None):
     """Load base SQL and inject formatted filters.
 
     The base query contains the placeholders ``:fecha_ini`` and
     ``:fecha_fin``. This function replaces those placeholders with Oracle
-    ``TO_DATE`` expressions formatted as ``YYYY-MM-DD HH24:MI:SS``.  When
-    ``ne_id`` is provided an ``AND a.ne_id =`` clause is appended using the
-    ``:ne_id`` placeholder defined in ``sql/base_query.sql``.
+    ``TO_DATE`` expressions formatted as ``YYYY-MM-DD HH24:MI:SS``. When
+    ``ne_id`` or ``action`` are provided, respective ``AND`` clauses are
+    appended using the ``:ne_id`` and ``:action`` placeholders defined in
+    ``sql/base_query.sql``.
     """
 
     with open("sql/base_query.sql", "r", encoding="utf-8") as f:
@@ -34,5 +35,13 @@ def build_query(fecha_ini, fecha_fin, ne_id=None):
         )
     else:
         query = query.replace(":ne_id", "")
+
+    if action:
+        query = query.replace(
+            ":action",
+            f"AND a.pri_action = '{action}'",
+        )
+    else:
+        query = query.replace(":action", "")
 
     return query
