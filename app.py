@@ -52,6 +52,7 @@ with col3:
 # Ejecutar consulta
 query = build_query(fecha_ini, fecha_fin, ne_id or None)
 df = get_transacciones(st.session_state["db_conn"], query)
+st.session_state["transacciones_df"] = df
 
 # Logs detallados
 st.write("📋 Log de ejecución")
@@ -61,14 +62,8 @@ st.success(f"Total de transacciones recuperadas: {len(df)}")
 # KPIs
 kpi_cards(df)
 
-# Tabla de transacciones
-st.subheader("📄 Detalle de transacciones")
-max_cols = 10
-data_to_show = df[df.columns[:max_cols]] if len(df.columns) > max_cols else df
-if HAS_AGGRID:
-    AgGrid(data_to_show)
-else:
-    st.dataframe(data_to_show)
+if st.button("Ver detalle de transacciones"):
+    st.switch_page("pages/detalle_transacciones")
 
 # Pie chart
 st.plotly_chart(status_pie_chart(df), use_container_width=True)
