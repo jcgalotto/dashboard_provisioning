@@ -30,11 +30,16 @@ else:
     st.stop()
 
 # Parámetros de fecha
+now = datetime.datetime.now()
 col1, col2 = st.columns(2)
 with col1:
-    fecha_ini = st.datetime_input("Fecha Inicio", value=datetime.datetime.now().replace(hour=0, minute=0))
+    fecha_ini_fecha = st.date_input("Fecha Inicio", value=now.date())
+    fecha_ini_hora = st.time_input("Hora Inicio", value=datetime.time(0, 0))
+    fecha_ini = datetime.datetime.combine(fecha_ini_fecha, fecha_ini_hora)
 with col2:
-    fecha_fin = st.datetime_input("Fecha Fin", value=datetime.datetime.now())
+    fecha_fin_fecha = st.date_input("Fecha Fin", value=now.date())
+    fecha_fin_hora = st.time_input("Hora Fin", value=now.time())
+    fecha_fin = datetime.datetime.combine(fecha_fin_fecha, fecha_fin_hora)
 
 # Ejecutar consulta
 query = build_query(fecha_ini, fecha_fin)
