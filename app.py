@@ -63,7 +63,7 @@ st.success(f"Total de transacciones recuperadas: {len(df)}")
 kpi_cards(df)
 
 if st.button("Ver detalle de transacciones"):
-    st.switch_page("pages/detalle_transacciones")
+    st.switch_page("pages/detalle_transacciones.py")
 
 # Pie chart
 st.plotly_chart(status_pie_chart(df), use_container_width=True)

@@ -20,4 +20,4 @@ else:
         st.dataframe(df)
 
 if st.button("Volver"):
-    st.switch_page("app")
+    st.switch_page("app.py")
