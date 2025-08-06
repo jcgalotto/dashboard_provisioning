@@ -4,18 +4,18 @@ import plotly.express as px
 
 def kpi_cards(df):
     total = len(df)
+    pendiente = len(df[df["pri_status"].isin(["K", "T", "PENDING"])])
     ok = len(df[df["pri_status"] == "O"])
     error = len(df[df["pri_status"] == "E"])
-    perc_ok = (ok / total) * 100 if total > 0 else 0
-    perc_err = (error / total) * 100 if total > 0 else 0
 
     if total == 0:
         st.warning("No data available")
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     col1.metric("Total", total)
-    col2.metric("% OK", f"{perc_ok:.2f}%")
-    col3.metric("% Error", f"{perc_err:.2f}%")
+    col2.metric("Pendiente", pendiente)
+    col3.metric("OK", ok)
+    col4.metric("Error", error)
 
 
 def status_pie_chart(df):
