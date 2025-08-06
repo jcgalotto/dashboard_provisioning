@@ -11,11 +11,22 @@ def kpi_cards(df):
     if total == 0:
         st.warning("No data available")
 
+    if total > 0:
+        pendiente_pct = pendiente / total
+        ok_pct = ok / total
+        error_pct = error / total
+        total_pct = 1
+    else:
+        pendiente_pct = 0
+        ok_pct = 0
+        error_pct = 0
+        total_pct = 0
+
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total", total)
-    col2.metric("Pendiente", pendiente)
-    col3.metric("OK", ok)
-    col4.metric("Error", error)
+    col1.metric("Total", total, f"{total_pct:.2%}")
+    col2.metric("Pendiente", pendiente, f"{pendiente_pct:.2%}")
+    col3.metric("OK", ok, f"{ok_pct:.2%}")
+    col4.metric("Error", error, f"{error_pct:.2%}")
 
 
 def status_pie_chart(df):
