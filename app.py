@@ -1,7 +1,7 @@
 import streamlit as st
 from config.db_config import get_connection
 from data.query_builder import build_query
-from services.data_service import get_transacciones
+from services.data_service import get_transacciones, get_actions
 from visualizations.charts import kpi_cards, status_pie_chart, error_bar_chart
 import datetime
 
@@ -57,9 +57,13 @@ with col2:
     fecha_fin = datetime.datetime.combine(fecha_fin_fecha, fecha_fin_hora)
 with col3:
     ne_id = st.text_input("NE ID")
+    action = None
+    if ne_id:
+        actions = get_actions(st.session_state["db_conn"], ne_id)
+        action = st.selectbox("Acción", actions)
 
 # Ejecutar consulta
-query = build_query(fecha_ini, fecha_fin, ne_id or None)
+query = build_query(fecha_ini, fecha_fin, ne_id or None, action)
 df = get_transacciones(st.session_state["db_conn"], query)
 st.session_state["transacciones_df"] = df
 
