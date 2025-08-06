@@ -2,31 +2,35 @@
 """Helpers to construct SQL queries with optional filters."""
 
 
-def build_query(fecha_ini, fecha_fin, ne_id=None, action=None):
+def build_query(fecha_ini, fecha_fin=None, ne_id=None, action=None):
     """Load base SQL and inject formatted filters.
 
     The base query contains the placeholders ``:fecha_ini`` and
     ``:fecha_fin``. This function replaces those placeholders with Oracle
-    ``TO_DATE`` expressions formatted as ``YYYY-MM-DD HH24:MI:SS``. When
-    ``ne_id`` or ``action`` are provided, respective ``AND`` clauses are
-    appended using the ``:ne_id`` and ``:action`` placeholders defined in
-    ``sql/base_query.sql``.
+    ``TO_DATE`` expressions formatted as ``DD-MM-YYYY HH24:MI:SS``. If
+    ``fecha_fin`` is not provided, the ``:fecha_fin`` placeholder is
+    replaced with ``SYSDATE``. When ``ne_id`` or ``action`` are provided,
+    respective ``AND`` clauses are appended using the ``:ne_id`` and
+    ``:action`` placeholders defined in ``sql/base_query.sql``.
     """
 
     with open("sql/base_query.sql", "r", encoding="utf-8") as f:
         query = f.read()
 
-    fecha_ini_str = fecha_ini.strftime("%Y-%m-%d %H:%M:%S")
-    fecha_fin_str = fecha_fin.strftime("%Y-%m-%d %H:%M:%S")
-
+    fecha_ini_str = fecha_ini.strftime("%d-%m-%Y %H:%M:%S")
     query = query.replace(
         ":fecha_ini",
-        f"TO_DATE('{fecha_ini_str}', 'YYYY-MM-DD HH24:MI:SS')",
+        f"TO_DATE('{fecha_ini_str}', 'DD-MM-YYYY HH24:MI:SS')",
     )
-    query = query.replace(
-        ":fecha_fin",
-        f"TO_DATE('{fecha_fin_str}', 'YYYY-MM-DD HH24:MI:SS')",
-    )
+
+    if fecha_fin:
+        fecha_fin_str = fecha_fin.strftime("%d-%m-%Y %H:%M:%S")
+        query = query.replace(
+            ":fecha_fin",
+            f"TO_DATE('{fecha_fin_str}', 'DD-MM-YYYY HH24:MI:SS')",
+        )
+    else:
+        query = query.replace(":fecha_fin", "SYSDATE")
 
     if ne_id:
         query = query.replace(
