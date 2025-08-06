@@ -5,6 +5,12 @@ from services.data_service import get_transacciones
 from visualizations.charts import kpi_cards, status_pie_chart, error_bar_chart
 import datetime
 
+try:
+    from st_aggrid import AgGrid
+    HAS_AGGRID = True
+except ImportError:
+    HAS_AGGRID = False
+
 st.set_page_config(page_title="Dashboard Provisioning", layout="wide")
 st.title("📊 Dashboard Provisioning")
 
@@ -52,6 +58,15 @@ st.success(f"Total de transacciones recuperadas: {len(df)}")
 
 # KPIs
 kpi_cards(df)
+
+# Tabla de transacciones
+st.subheader("📄 Detalle de transacciones")
+max_cols = 10
+data_to_show = df[df.columns[:max_cols]] if len(df.columns) > max_cols else df
+if HAS_AGGRID:
+    AgGrid(data_to_show)
+else:
+    st.dataframe(data_to_show)
 
 # Pie chart
 st.plotly_chart(status_pie_chart(df), use_container_width=True)
