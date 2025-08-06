@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import datetime
 
 try:
     from st_aggrid import AgGrid
@@ -51,6 +52,18 @@ else:
                     valores.append("(SELECT MAX(pri_id) + 1 FROM swp_provisioning_interfaces)")
                 elif pd.isna(valor):
                     valores.append("NULL")
+                elif (
+                    "date" in col.lower()
+                    or pd.api.types.is_datetime64_any_dtype(df_filtrado[col])
+                    or isinstance(valor, (pd.Timestamp, datetime.datetime, datetime.date))
+                ):
+                    if isinstance(valor, str) and valor.upper() == "SYSDATE":
+                        valores.append("TO_DATE(SYSDATE, 'DD-MM-YYYY HH24:MI:SS')")
+                    else:
+                        fecha = pd.to_datetime(valor)
+                        valores.append(
+                            f"TO_DATE('{fecha.strftime('%d-%m-%Y %H:%M:%S')}', 'DD-MM-YYYY HH24:MI:SS')"
+                        )
                 elif isinstance(valor, str):
                     valores.append("'" + valor.replace("'", "''") + "'")
                 else:
