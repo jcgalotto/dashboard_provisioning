@@ -47,10 +47,10 @@ with col2:
     fecha_fin_hora = st.time_input("Hora Fin", value=now.time())
     fecha_fin = datetime.datetime.combine(fecha_fin_fecha, fecha_fin_hora)
 with col3:
-    ne_id = st.text_input("NE ID")
+    pri_ne_id = st.text_input("NE ID")
 
 # Ejecutar consulta
-query = build_query(fecha_ini, fecha_fin, ne_id or None)
+query = build_query(fecha_ini, fecha_fin, pri_ne_id or None)
 df = get_transacciones(st.session_state["db_conn"], query)
 
 # Logs detallados
