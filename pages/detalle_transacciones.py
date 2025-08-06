@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 
 try:
     from st_aggrid import AgGrid
@@ -38,6 +39,32 @@ else:
         AgGrid(df_filtrado)
     else:
         st.dataframe(df_filtrado)
+
+    if not df_filtrado.empty:
+        columnas = ", ".join(df_filtrado.columns)
+
+        inserts = []
+        for _, fila in df_filtrado.iterrows():
+            valores = []
+            for valor in fila:
+                if pd.isna(valor):
+                    valores.append("NULL")
+                elif isinstance(valor, str):
+                    valores.append("'" + valor.replace("'", "''") + "'")
+                else:
+                    valores.append(str(valor))
+            inserts.append(
+                f"INSERT INTO swp_provisioning_interfaces ({columnas}) VALUES ({', '.join(valores)});"
+            )
+
+        sql_contenido = "\n".join(inserts)
+
+        st.download_button(
+            "Generar insert SQL",
+            data=sql_contenido,
+            file_name="transacciones_insert.sql",
+            mime="application/sql",
+        )
 
 if st.button("Volver"):
     st.switch_page("app.py")
