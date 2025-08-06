@@ -12,6 +12,15 @@ except ImportError:
     HAS_AGGRID = False
 
 st.set_page_config(page_title="Dashboard Provisioning", layout="wide")
+st.markdown(
+    """
+    <style>
+    div[data-testid='stSidebarNav'] { display: none; }
+    [data-testid='stHeader'] { display: none; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 st.title("📊 Dashboard Provisioning")
 
 # Configuración de conexión

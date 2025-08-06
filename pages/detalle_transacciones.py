@@ -7,6 +7,15 @@ except ImportError:
     HAS_AGGRID = False
 
 st.set_page_config(page_title="Detalle de transacciones")
+st.markdown(
+    """
+    <style>
+    div[data-testid='stSidebarNav'] { display: none; }
+    [data-testid='stHeader'] { display: none; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 st.title("📄 Detalle de transacciones")
 
 df = st.session_state.get("transacciones_df")
