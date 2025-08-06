@@ -1,6 +1,9 @@
 
 """Helpers to construct SQL queries with optional filters."""
 
+DATE_FORMAT = "%d-%m-%Y %H:%M:%S"
+ORACLE_DATE_FORMAT = "DD-MM-YYYY HH24:MI:SS"
+
 
 def build_query(fecha_ini, fecha_fin=None, ne_id=None, action=None):
     """Load base SQL and inject formatted filters.
@@ -17,17 +20,17 @@ def build_query(fecha_ini, fecha_fin=None, ne_id=None, action=None):
     with open("sql/base_query.sql", "r", encoding="utf-8") as f:
         query = f.read()
 
-    fecha_ini_str = fecha_ini.strftime("%d-%m-%Y %H:%M:%S")
+    fecha_ini_str = fecha_ini.strftime(DATE_FORMAT)
     query = query.replace(
         ":fecha_ini",
-        f"TO_DATE('{fecha_ini_str}', 'DD-MM-YYYY HH24:MI:SS')",
+        f"TO_DATE('{fecha_ini_str}', '{ORACLE_DATE_FORMAT}')",
     )
 
     if fecha_fin:
-        fecha_fin_str = fecha_fin.strftime("%d-%m-%Y %H:%M:%S")
+        fecha_fin_str = fecha_fin.strftime(DATE_FORMAT)
         query = query.replace(
             ":fecha_fin",
-            f"TO_DATE('{fecha_fin_str}', 'DD-MM-YYYY HH24:MI:SS')",
+            f"TO_DATE('{fecha_fin_str}', '{ORACLE_DATE_FORMAT}')",
         )
     else:
         query = query.replace(":fecha_fin", "SYSDATE")
