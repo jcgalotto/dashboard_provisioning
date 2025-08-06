@@ -23,10 +23,21 @@ df = st.session_state.get("transacciones_df")
 if df is None:
     st.warning("No hay datos de transacciones en la sesión")
 else:
+    estados = ["Todos"] + df["pri_status"].dropna().unique().tolist()
+    estado = st.selectbox("Filtrar por estado", estados)
+
+    df_filtrado = df if estado == "Todos" else df[df["pri_status"] == estado]
+
+    if estado == "E":
+        errores = ["Todos"] + df_filtrado["pri_error_code"].dropna().unique().tolist()
+        error = st.selectbox("Tipo de error", errores)
+        if error != "Todos":
+            df_filtrado = df_filtrado[df_filtrado["pri_error_code"] == error]
+
     if HAS_AGGRID:
-        AgGrid(df)
+        AgGrid(df_filtrado)
     else:
-        st.dataframe(df)
+        st.dataframe(df_filtrado)
 
 if st.button("Volver"):
     st.switch_page("app.py")
