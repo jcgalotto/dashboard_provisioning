@@ -46,15 +46,17 @@ else:
         inserts = []
         for _, fila in df_filtrado.iterrows():
             valores = []
-            for valor in fila:
-                if pd.isna(valor):
+            for col, valor in fila.items():
+                if col.lower() == "pri_id":
+                    valores.append("(SELECT MAX(pri_id) + 1 FROM swp_provisioning_interfaces)")
+                elif pd.isna(valor):
                     valores.append("NULL")
                 elif isinstance(valor, str):
                     valores.append("'" + valor.replace("'", "''") + "'")
                 else:
                     valores.append(str(valor))
             inserts.append(
-                f"INSERT INTO swp_provisioning_interfaces ({columnas}) VALUES ({', '.join(valores)});"
+                f"INSERT INTO swp_provisioning_interfaces ({columnas}) VALUES ({', '.join(valores)});",
             )
 
         sql_contenido = "\n".join(inserts)
