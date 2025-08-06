@@ -31,7 +31,7 @@ else:
 
 # Parámetros de fecha
 now = datetime.datetime.now()
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns(3)
 with col1:
     fecha_ini_fecha = st.date_input("Fecha Inicio", value=now.date())
     fecha_ini_hora = st.time_input("Hora Inicio", value=datetime.time(0, 0))
@@ -40,9 +40,11 @@ with col2:
     fecha_fin_fecha = st.date_input("Fecha Fin", value=now.date())
     fecha_fin_hora = st.time_input("Hora Fin", value=now.time())
     fecha_fin = datetime.datetime.combine(fecha_fin_fecha, fecha_fin_hora)
+with col3:
+    ne_id = st.text_input("NE ID")
 
 # Ejecutar consulta
-query = build_query(fecha_ini, fecha_fin)
+query = build_query(fecha_ini, fecha_fin, ne_id or None)
 df = get_transacciones(st.session_state["db_conn"], query)
 
 # Logs detallados
