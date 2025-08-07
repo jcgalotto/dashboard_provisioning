@@ -5,14 +5,14 @@ DATE_FORMAT = "%d-%m-%Y %H:%M:%S"
 ORACLE_DATE_FORMAT = "DD-MM-YYYY HH24:MI:SS"
 
 
-def build_query(fecha_ini, fecha_fin=None, ne_id=None, action=None):
+def build_query(fecha_ini, fecha_fin=None, ne_id=None, actions=None):
     """Load base SQL and inject formatted filters.
 
     The base query contains the placeholders ``:fecha_ini`` and
     ``:fecha_fin``. This function replaces those placeholders with Oracle
     ``TO_DATE`` expressions formatted as ``DD-MM-YYYY HH24:MI:SS``. If
     ``fecha_fin`` is not provided, the ``:fecha_fin`` placeholder is
-    replaced with ``SYSDATE``. When ``ne_id`` or ``action`` are provided,
+    replaced with ``SYSDATE``. When ``ne_id`` or ``actions`` are provided,
     respective ``AND`` clauses are appended using the ``:ne_id`` and
     ``:action`` placeholders defined in ``sql/base_query.sql``.
     """
@@ -43,10 +43,11 @@ def build_query(fecha_ini, fecha_fin=None, ne_id=None, action=None):
     else:
         query = query.replace(":ne_id", "")
 
-    if action:
+    if actions:
+        formatted_actions = ", ".join(f"'{a}'" for a in actions)
         query = query.replace(
             ":action",
-            f"AND a.pri_action = '{action}'",
+            f"AND a.pri_action IN ({formatted_actions})",
         )
     else:
         query = query.replace(":action", "")

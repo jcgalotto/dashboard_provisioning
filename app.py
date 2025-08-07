@@ -64,19 +64,19 @@ with col2:
     fecha_fin = datetime.datetime.combine(fecha_fin_fecha, fecha_fin_hora)
 with col3:
     ne_id = st.text_input("NE ID")
-    action = None
+    actions_selected = []
     if ne_id:
         if "db_conn" not in st.session_state:
             st.warning("🔌 No hay conexión activa")
             st.stop()
         actions = get_actions(st.session_state["db_conn"], ne_id)
-        action = st.selectbox("Acción", actions)
+        actions_selected = st.multiselect("Acción", actions)
 
 # Ejecutar consulta
 if "db_conn" not in st.session_state:
     st.warning("🔌 No hay conexión activa")
     st.stop()
-query = build_query(fecha_ini, fecha_fin, ne_id or None, action)
+query = build_query(fecha_ini, fecha_fin, ne_id or None, actions_selected or None)
 if "db_conn" not in st.session_state:
     st.warning("🔌 No hay conexión activa")
     st.stop()
