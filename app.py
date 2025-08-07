@@ -32,17 +32,20 @@ with st.sidebar:
     user = st.text_input("Usuario")
     password = st.text_input("Contraseña", type="password")
     if st.button("Conectar"):
-        st.session_state["connection_name"] = f"{host}:{port}/{service_name}"
         conn = get_connection(host, port, service_name, user, password)
         if conn:
+            st.session_state["connection_name"] = f"{host}:{port}/{service_name}"
+            st.session_state["db_conn"] = conn
             st.success(f"✅ Conectado a {st.session_state['connection_name']}")
+        else:
+            st.error("❌ Error al conectar")
 
 # Mostrar log de conexión
-if "connection_name" in st.session_state:
-    st.info(f"🔗 Conectado a: {st.session_state['connection_name']}")
-else:
+if "db_conn" not in st.session_state:
     st.warning("🔌 No hay conexión activa")
     st.stop()
+if "connection_name" in st.session_state:
+    st.info(f"🔗 Conectado a: {st.session_state['connection_name']}")
 
 # Parámetros de fecha
 now = datetime.datetime.now()
@@ -59,11 +62,17 @@ with col3:
     ne_id = st.text_input("NE ID")
     action = None
     if ne_id:
+        if "db_conn" not in st.session_state:
+            st.warning("🔌 No hay conexión activa")
+            st.stop()
         actions = get_actions(st.session_state["db_conn"], ne_id)
         action = st.selectbox("Acción", actions)
 
 # Ejecutar consulta
 query = build_query(fecha_ini, fecha_fin, ne_id or None, action)
+if "db_conn" not in st.session_state:
+    st.warning("🔌 No hay conexión activa")
+    st.stop()
 df = get_transacciones(st.session_state["db_conn"], query)
 st.session_state["transacciones_df"] = df
 
