@@ -64,16 +64,19 @@ with col2:
     fecha_fin = datetime.datetime.combine(fecha_fin_fecha, fecha_fin_hora)
 with col3:
     ne_id = st.text_input("NE ID")
-    selected_actions = selected_services = None
+    selected_services = selected_actions = None
 
     if ne_id:
         if "db_conn" not in st.session_state:
             st.warning("🔌 No hay conexión activa")
             st.stop()
-        actions = get_actions(st.session_state["db_conn"], ne_id)
-        selected_actions = st.multiselect("Acción", actions)
         services = get_services(st.session_state["db_conn"], ne_id)
         selected_services = st.multiselect("Servicio", services)
+        if selected_services:
+            actions = get_actions(
+                st.session_state["db_conn"], ne_id, selected_services
+            )
+            selected_actions = st.multiselect("Acción", actions)
 
 
 # Ejecutar consulta
