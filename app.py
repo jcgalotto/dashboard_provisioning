@@ -65,12 +65,14 @@ with col2:
 with col3:
     ne_id = st.text_input("NE ID")
     selected_actions = None
+
     if ne_id:
         if "db_conn" not in st.session_state:
             st.warning("🔌 No hay conexión activa")
             st.stop()
         actions = get_actions(st.session_state["db_conn"], ne_id)
         selected_actions = st.multiselect("Acción", actions)
+
 
 # Ejecutar consulta
 if "db_conn" not in st.session_state:
@@ -82,6 +84,7 @@ query = build_query(
     ne_id or None,
     selected_actions or None,
 )
+
 if "db_conn" not in st.session_state:
     st.warning("🔌 No hay conexión activa")
     st.stop()

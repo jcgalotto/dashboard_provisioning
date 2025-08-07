@@ -15,6 +15,7 @@ def build_query(fecha_ini, fecha_fin=None, ne_id=None, actions=None):
     replaced with ``SYSDATE``. When ``ne_id`` or a list of ``actions`` are
     provided, respective ``AND`` clauses are appended using the ``:ne_id``
     and ``:action`` placeholders defined in ``sql/base_query.sql``.
+
     """
 
     with open("sql/base_query.sql", "r", encoding="utf-8") as f:
@@ -48,6 +49,7 @@ def build_query(fecha_ini, fecha_fin=None, ne_id=None, actions=None):
         query = query.replace(
             ":action",
             f"AND a.pri_action IN ('{formatted_actions}')",
+
         )
     else:
         query = query.replace(":action", "")
