@@ -38,14 +38,18 @@ with st.sidebar:
             st.session_state["db_conn"] = conn
             st.success(f"✅ Conectado a {st.session_state['connection_name']}")
         else:
+
             st.error("❌ Error al conectar")
+
 
 # Mostrar log de conexión
 if "db_conn" not in st.session_state:
     st.warning("🔌 No hay conexión activa")
     st.stop()
-if "connection_name" in st.session_state:
+
+    if "connection_name" in st.session_state:
     st.info(f"🔗 Conectado a: {st.session_state['connection_name']}")
+
 
 # Parámetros de fecha
 now = datetime.datetime.now()
@@ -69,6 +73,9 @@ with col3:
         action = st.selectbox("Acción", actions)
 
 # Ejecutar consulta
+if "db_conn" not in st.session_state:
+    st.warning("🔌 No hay conexión activa")
+    st.stop()
 query = build_query(fecha_ini, fecha_fin, ne_id or None, action)
 if "db_conn" not in st.session_state:
     st.warning("🔌 No hay conexión activa")
