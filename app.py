@@ -4,6 +4,7 @@ from data.query_builder import build_query
 from services.data_service import get_transacciones, get_actions, get_services
 from visualizations.charts import kpi_cards, status_pie_chart, error_bar_chart
 import datetime
+import pandas as pd
 
 try:
     from st_aggrid import AgGrid
@@ -77,7 +78,35 @@ with col3:
                 st.session_state["db_conn"], ne_id, selected_services
             )
             selected_actions = st.multiselect("Acción", actions)
-
+comparar = st.checkbox("Comparar con otro periodo")
+if comparar:
+    col4, col5 = st.columns(2)
+    with col4:
+        cmp_ini_fecha = st.date_input(
+            "Fecha Inicio Comparación",
+            value=fecha_ini_fecha,
+            key="cmp_ini_fecha",
+        )
+        cmp_ini_hora = st.time_input(
+            "Hora Inicio Comparación",
+            value=datetime.time(0, 0),
+            key="cmp_ini_hora",
+        )
+        fecha_ini_cmp = datetime.datetime.combine(cmp_ini_fecha, cmp_ini_hora)
+    with col5:
+        cmp_fin_fecha = st.date_input(
+            "Fecha Fin Comparación",
+            value=fecha_fin_fecha,
+            key="cmp_fin_fecha",
+        )
+        cmp_fin_hora = st.time_input(
+            "Hora Fin Comparación",
+            value=fecha_fin_hora,
+            key="cmp_fin_hora",
+        )
+        fecha_fin_cmp = datetime.datetime.combine(cmp_fin_fecha, cmp_fin_hora)
+else:
+    fecha_ini_cmp = fecha_fin_cmp = None
 
 # Ejecutar consulta
 if "db_conn" not in st.session_state:
@@ -97,10 +126,30 @@ if "db_conn" not in st.session_state:
 df = get_transacciones(st.session_state["db_conn"], query)
 st.session_state["transacciones_df"] = df
 
+if comparar:
+    query_cmp = build_query(
+        fecha_ini_cmp,
+        fecha_fin_cmp,
+        ne_id or None,
+        selected_actions or None,
+        selected_services or None,
+    )
+    df_cmp = get_transacciones(st.session_state["db_conn"], query_cmp)
+else:
+    query_cmp = ""
+    df_cmp = pd.DataFrame()
+
 # Logs detallados
 st.write("📋 Log de ejecución")
 st.code(query, language="sql")
 st.success(f"Total de transacciones recuperadas: {len(df)}")
+
+if comparar:
+    st.write("📋 Log de ejecución - Periodo comparación")
+    st.code(query_cmp, language="sql")
+    st.success(
+        f"Total de transacciones periodo comparación: {len(df_cmp)}"
+    )
 
 # KPIs
 kpi_cards(df)
@@ -115,3 +164,32 @@ st.plotly_chart(status_pie_chart(df), use_container_width=True)
 if not df[df['pri_status'] == 'E'].empty:
     st.subheader("📉 Códigos de Error")
     st.plotly_chart(error_bar_chart(df), use_container_width=True)
+
+if comparar:
+    st.subheader("📊 Comparativo de transacciones")
+
+    def resumen(df_base):
+        errores = df_base[df_base["pri_status"] == "E"]
+        return (
+            errores.groupby(["pri_error_code", "pri_message_error"])
+            .size()
+            .reset_index(name="cantidad")
+        )
+
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.markdown("**Periodo Actual**")
+        st.metric("Operaciones", len(df))
+        resumen_actual = resumen(df)
+        if not resumen_actual.empty:
+            st.dataframe(resumen_actual)
+        else:
+            st.write("Sin errores")
+    with col_b:
+        st.markdown("**Periodo Comparación**")
+        st.metric("Operaciones", len(df_cmp))
+        resumen_cmp = resumen(df_cmp)
+        if not resumen_cmp.empty:
+            st.dataframe(resumen_cmp)
+        else:
+            st.write("Sin errores")
