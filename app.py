@@ -2,7 +2,11 @@ import streamlit as st
 from config.db_config import get_connection
 from data.query_builder import build_query
 from services.data_service import get_transacciones, get_actions, get_services
-from visualizations.charts import kpi_cards, status_pie_chart, error_bar_chart
+from visualizations.charts import (
+    kpi_cards,
+    status_pie_chart,
+    error_detail_bar_chart,
+)
 import datetime
 import pandas as pd
 
@@ -163,7 +167,7 @@ st.plotly_chart(status_pie_chart(df), use_container_width=True)
 # Gráfico de errores
 if not df[df['pri_status'] == 'E'].empty:
     st.subheader("📉 Códigos de Error")
-    st.plotly_chart(error_bar_chart(df), use_container_width=True)
+    st.plotly_chart(error_detail_bar_chart(df), use_container_width=True)
 
 if comparar:
     st.subheader("📊 Comparativo de transacciones")

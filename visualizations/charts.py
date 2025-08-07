@@ -47,3 +47,23 @@ def error_bar_chart(df):
     conteo.columns = ["Código Error", "Cantidad"]
     return px.bar(conteo, x="Código Error", y="Cantidad", title="Errores por Código", color="Cantidad")
 
+
+def error_detail_bar_chart(df):
+    if df.empty:
+        st.warning("No data available")
+        return px.Figure()
+    errores = df[df["pri_status"] == "E"]
+    conteo = (
+        errores.groupby(["pri_error_code", "pri_message_error"])
+        .size()
+        .reset_index(name="Cantidad")
+    )
+    conteo.columns = ["Código Error", "Descripción", "Cantidad"]
+    return px.bar(
+        conteo,
+        x="Código Error",
+        y="Cantidad",
+        color="Descripción",
+        title="Errores por Código y Descripción",
+    )
+
