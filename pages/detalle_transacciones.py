@@ -58,7 +58,7 @@ else:
                     or isinstance(valor, (pd.Timestamp, datetime.datetime, datetime.date))
                 ):
                     if isinstance(valor, str) and valor.upper() == "SYSDATE":
-                        valores.append("TO_DATE(SYSDATE, 'DD-MM-YYYY HH24:MI:SS')")
+                        valores.append("SYSDATE")
                     else:
                         fecha = pd.to_datetime(valor)
                         valores.append(
