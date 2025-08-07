@@ -2,27 +2,11 @@ import streamlit as st
 import plotly.express as px
 
 
-def kpi_cards(df, df_prev=None):
+def kpi_cards(df):
     total = len(df)
     pendiente = len(df[df["pri_status"].isin(["K", "T", "PENDING"])])
     ok = len(df[df["pri_status"] == "O"])
     error = len(df[df["pri_status"] == "E"])
-
-    col1, col2, col3, col4 = st.columns(4)
-
-    if df_prev is not None:
-        total_prev = len(df_prev)
-        pendiente_prev = len(
-            df_prev[df_prev["pri_status"].isin(["K", "T", "PENDING"])]
-        )
-        ok_prev = len(df_prev[df_prev["pri_status"] == "O"])
-        error_prev = len(df_prev[df_prev["pri_status"] == "E"])
-
-        col1.metric("Total", total, total - total_prev)
-        col2.metric("Pendiente", pendiente, pendiente - pendiente_prev)
-        col3.metric("OK", ok, ok - ok_prev)
-        col4.metric("Error", error, error - error_prev)
-        return
 
     if total == 0:
         st.warning("No data available")
@@ -38,6 +22,7 @@ def kpi_cards(df, df_prev=None):
         error_pct = 0
         total_pct = 0
 
+    col1, col2, col3, col4 = st.columns(4)
     col1.metric("Total", total, f"{total_pct:.2%}")
     col2.metric("Pendiente", pendiente, f"{pendiente_pct:.2%}")
     col3.metric("OK", ok, f"{ok_pct:.2%}")
