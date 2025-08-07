@@ -5,16 +5,17 @@ DATE_FORMAT = "%d-%m-%Y %H:%M:%S"
 ORACLE_DATE_FORMAT = "DD-MM-YYYY HH24:MI:SS"
 
 
-def build_query(fecha_ini, fecha_fin=None, ne_id=None, actions=None):
+def build_query(fecha_ini, fecha_fin=None, ne_id=None, actions=None, services=None):
     """Load base SQL and inject formatted filters.
 
     The base query contains the placeholders ``:fecha_ini`` and
     ``:fecha_fin``. This function replaces those placeholders with Oracle
     ``TO_DATE`` expressions formatted as ``DD-MM-YYYY HH24:MI:SS``. If
     ``fecha_fin`` is not provided, the ``:fecha_fin`` placeholder is
-    replaced with ``SYSDATE``. When ``ne_id`` or a list of ``actions`` are
-    provided, respective ``AND`` clauses are appended using the ``:ne_id``
-    and ``:action`` placeholders defined in ``sql/base_query.sql``.
+    replaced with ``SYSDATE``. When ``ne_id`` or lists of ``actions`` or
+    ``services`` are provided, respective ``AND`` clauses are appended using
+    the ``:ne_id``, ``:action`` and ``:service`` placeholders defined in
+    ``sql/base_query.sql``.
 
     """
 
@@ -53,5 +54,15 @@ def build_query(fecha_ini, fecha_fin=None, ne_id=None, actions=None):
         )
     else:
         query = query.replace(":action", "")
+
+    if services:
+        formatted_services = "', '".join(services)
+        query = query.replace(
+            ":service",
+            f"AND a.pri_ne_service IN ('{formatted_services}')",
+
+        )
+    else:
+        query = query.replace(":service", "")
 
     return query

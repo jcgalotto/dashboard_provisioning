@@ -1,7 +1,7 @@
 import streamlit as st
 from config.db_config import get_connection
 from data.query_builder import build_query
-from services.data_service import get_transacciones, get_actions
+from services.data_service import get_transacciones, get_actions, get_services
 from visualizations.charts import kpi_cards, status_pie_chart, error_bar_chart
 import datetime
 
@@ -64,7 +64,7 @@ with col2:
     fecha_fin = datetime.datetime.combine(fecha_fin_fecha, fecha_fin_hora)
 with col3:
     ne_id = st.text_input("NE ID")
-    selected_actions = None
+    selected_actions = selected_services = None
 
     if ne_id:
         if "db_conn" not in st.session_state:
@@ -72,6 +72,8 @@ with col3:
             st.stop()
         actions = get_actions(st.session_state["db_conn"], ne_id)
         selected_actions = st.multiselect("Acción", actions)
+        services = get_services(st.session_state["db_conn"], ne_id)
+        selected_services = st.multiselect("Servicio", services)
 
 
 # Ejecutar consulta
@@ -83,6 +85,7 @@ query = build_query(
     fecha_fin,
     ne_id or None,
     selected_actions or None,
+    selected_services or None,
 )
 
 if "db_conn" not in st.session_state:
