@@ -49,7 +49,9 @@ else:
             valores = []
             for col, valor in fila.items():
                 if col.lower() == "pri_id":
-                    valores.append("(SELECT MAX(pri_id) + 1 FROM swp_provisioning_interfaces)")
+                    valores.append(
+                        "(SELECT NVL(MAX(pri_id), 0) + 1 FROM swp_provisioning_interfaces)"
+                    )
                 elif pd.isna(valor):
                     valores.append("NULL")
                 elif (
