@@ -36,6 +36,11 @@ else:
         if error != "Todos":
             df_filtrado = df_filtrado[df_filtrado["pri_error_code"] == error]
 
+        mensajes = ["Todos"] + df_filtrado["pri_message_error"].dropna().unique().tolist()
+        mensaje = st.selectbox("Descripción del error", mensajes)
+        if mensaje != "Todos":
+            df_filtrado = df_filtrado[df_filtrado["pri_message_error"] == mensaje]
+
     if HAS_AGGRID:
         AgGrid(df_filtrado)
     else:
