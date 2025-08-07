@@ -7,6 +7,7 @@ from visualizations.charts import (
     status_pie_chart,
     error_detail_bar_chart,
 )
+from utils.helpers import normalize_error_message
 import datetime
 import pandas as pd
 
@@ -173,7 +174,10 @@ if comparar:
     st.subheader("📊 Comparativo de transacciones")
 
     def resumen(df_base):
-        errores = df_base[df_base["pri_status"] == "E"]
+        errores = df_base[df_base["pri_status"] == "E"].copy()
+        errores["pri_message_error"] = errores["pri_message_error"].apply(
+            normalize_error_message
+        )
         return (
             errores.groupby(["pri_error_code", "pri_message_error"])
             .size()

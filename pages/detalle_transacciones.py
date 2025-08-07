@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import datetime
+from utils.helpers import normalize_error_message
 
 try:
     from st_aggrid import AgGrid
@@ -28,14 +29,19 @@ else:
     estados = ["Todos"] + df["pri_status"].dropna().unique().tolist()
     estado = st.selectbox("Filtrar por estado", estados)
 
-    df_filtrado = df if estado == "Todos" else df[df["pri_status"] == estado]
+    df_filtrado = (
+        df if estado == "Todos" else df[df["pri_status"] == estado]
+    ).copy()
 
     if estado == "E":
         errores = ["Todos"] + df_filtrado["pri_error_code"].dropna().unique().tolist()
         error = st.selectbox("Tipo de error", errores)
         if error != "Todos":
-            df_filtrado = df_filtrado[df_filtrado["pri_error_code"] == error]
+            df_filtrado = df_filtrado[df_filtrado["pri_error_code"] == error].copy()
 
+        df_filtrado["pri_message_error"] = df_filtrado["pri_message_error"].apply(
+            normalize_error_message
+        )
         mensajes = ["Todos"] + df_filtrado["pri_message_error"].dropna().unique().tolist()
         mensaje = st.selectbox("Descripción del error", mensajes)
         if mensaje != "Todos":

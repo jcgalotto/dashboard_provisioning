@@ -1,5 +1,6 @@
 import streamlit as st
 import plotly.express as px
+from utils.helpers import normalize_error_message
 
 
 def kpi_cards(df):
@@ -52,7 +53,10 @@ def error_detail_bar_chart(df):
     if df.empty:
         st.warning("No data available")
         return px.Figure()
-    errores = df[df["pri_status"] == "E"]
+    errores = df[df["pri_status"] == "E"].copy()
+    errores["pri_message_error"] = errores["pri_message_error"].apply(
+        normalize_error_message
+    )
     conteo = (
         errores.groupby(["pri_error_code", "pri_message_error"])
         .size()
