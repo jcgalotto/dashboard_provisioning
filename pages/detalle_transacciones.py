@@ -66,6 +66,9 @@ else:
                         valores.append(
                             f"TO_DATE('{fecha.strftime('%d-%m-%Y %H:%M:%S')}', 'DD-MM-YYYY HH24:MI:SS')"
                         )
+                elif col.lower() == "pri_request":
+                    texto = str(valor).replace("\n", "").replace("\r", "")
+                    valores.append("'" + texto.replace("'", "''") + "'")
                 elif isinstance(valor, str):
                     valores.append("'" + valor.replace("'", "''") + "'")
                 else:
