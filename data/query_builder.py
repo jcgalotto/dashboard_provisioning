@@ -12,9 +12,10 @@ def build_query(fecha_ini, fecha_fin=None, ne_id=None, actions=None):
     ``:fecha_fin``. This function replaces those placeholders with Oracle
     ``TO_DATE`` expressions formatted as ``DD-MM-YYYY HH24:MI:SS``. If
     ``fecha_fin`` is not provided, the ``:fecha_fin`` placeholder is
-    replaced with ``SYSDATE``. When ``ne_id`` or ``actions`` are provided,
-    respective ``AND`` clauses are appended using the ``:ne_id`` and
-    ``:action`` placeholders defined in ``sql/base_query.sql``.
+    replaced with ``SYSDATE``. When ``ne_id`` or a list of ``actions`` are
+    provided, respective ``AND`` clauses are appended using the ``:ne_id``
+    and ``:action`` placeholders defined in ``sql/base_query.sql``.
+
     """
 
     with open("sql/base_query.sql", "r", encoding="utf-8") as f:
@@ -44,10 +45,11 @@ def build_query(fecha_ini, fecha_fin=None, ne_id=None, actions=None):
         query = query.replace(":ne_id", "")
 
     if actions:
-        formatted_actions = ", ".join(f"'{a}'" for a in actions)
+        formatted_actions = "', '".join(actions)
         query = query.replace(
             ":action",
-            f"AND a.pri_action IN ({formatted_actions})",
+            f"AND a.pri_action IN ('{formatted_actions}')",
+
         )
     else:
         query = query.replace(":action", "")
