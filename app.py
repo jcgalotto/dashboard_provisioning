@@ -4,6 +4,7 @@ from data.query_builder import build_query
 from services.data_service import get_transacciones, get_actions, get_services
 from visualizations.charts import kpi_cards, status_pie_chart, error_bar_chart
 import datetime
+from dateutil.relativedelta import relativedelta
 
 try:
     from st_aggrid import AgGrid
@@ -79,6 +80,27 @@ with col3:
             selected_actions = st.multiselect("Acción", actions)
 
 
+# Filtro de comparación temporal
+comparar = st.checkbox("Comparar con periodo anterior")
+fecha_ini_prev = fecha_fin_prev = None
+if comparar:
+    col_cmp1, col_cmp2 = st.columns(2)
+    with col_cmp1:
+        cantidad = st.number_input("Cantidad", min_value=1, value=1, step=1)
+    with col_cmp2:
+        unidad = st.selectbox("Unidad", ["Horas", "Días", "Meses", "Años"])
+    if unidad == "Horas":
+        delta = datetime.timedelta(hours=cantidad)
+    elif unidad == "Días":
+        delta = datetime.timedelta(days=cantidad)
+    elif unidad == "Meses":
+        delta = relativedelta(months=cantidad)
+    else:
+        delta = relativedelta(years=cantidad)
+    fecha_ini_prev = fecha_ini - delta
+    fecha_fin_prev = fecha_fin - delta
+
+
 # Ejecutar consulta
 if "db_conn" not in st.session_state:
     st.warning("🔌 No hay conexión activa")
@@ -91,19 +113,37 @@ query = build_query(
     selected_services or None,
 )
 
-if "db_conn" not in st.session_state:
-    st.warning("🔌 No hay conexión activa")
-    st.stop()
+query_prev = None
+df_prev = None
+if fecha_ini_prev and fecha_fin_prev:
+    query_prev = build_query(
+        fecha_ini_prev,
+        fecha_fin_prev,
+        ne_id or None,
+        selected_actions or None,
+        selected_services or None,
+    )
+
 df = get_transacciones(st.session_state["db_conn"], query)
+if query_prev:
+    df_prev = get_transacciones(st.session_state["db_conn"], query_prev)
 st.session_state["transacciones_df"] = df
 
 # Logs detallados
 st.write("📋 Log de ejecución")
 st.code(query, language="sql")
-st.success(f"Total de transacciones recuperadas: {len(df)}")
+if query_prev:
+    st.code(query_prev, language="sql")
+
+if df_prev is not None:
+    st.success(
+        f"Total de transacciones recuperadas: {len(df)} (previo: {len(df_prev)})"
+    )
+else:
+    st.success(f"Total de transacciones recuperadas: {len(df)}")
 
 # KPIs
-kpi_cards(df)
+kpi_cards(df, df_prev)
 
 if st.button("Ver detalle de transacciones"):
     st.switch_page("pages/detalle_transacciones.py")
