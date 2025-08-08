@@ -1,6 +1,5 @@
 import streamlit as st
 import plotly.express as px
-from utils.helpers import normalize_error_message
 
 
 def kpi_cards(df):
@@ -30,44 +29,31 @@ def kpi_cards(df):
     col4.metric("Error", error, f"{error_pct:.2%}")
 
 
-def status_pie_chart(df):
-    if df.empty:
+def error_comparison_bar_chart(resumen_actual, resumen_cmp):
+    if resumen_actual.empty and resumen_cmp.empty:
         st.warning("No data available")
         return px.Figure()
-    counts = df["pri_status"].value_counts().reset_index()
-    counts.columns = ["Status", "Cantidad"]
-    return px.pie(counts, names="Status", values="Cantidad", title="Distribución de Status")
-
-
-def error_bar_chart(df):
-    if df.empty:
-        st.warning("No data available")
-        return px.Figure()
-    errores = df[df["pri_status"] == "E"]
-    conteo = errores["pri_error_code"].value_counts().reset_index()
-    conteo.columns = ["Código Error", "Cantidad"]
-    return px.bar(conteo, x="Código Error", y="Cantidad", title="Errores por Código", color="Cantidad")
-
-
-def error_detail_bar_chart(df):
-    if df.empty:
-        st.warning("No data available")
-        return px.Figure()
-    errores = df[df["pri_status"] == "E"].copy()
-    errores["pri_message_error"] = errores["pri_message_error"].apply(
-        normalize_error_message
+    resumen_total = (
+        resumen_actual.merge(
+            resumen_cmp,
+            on=["pri_error_code", "pri_message_error"],
+            how="outer",
+            suffixes=("_actual", "_cmp"),
+        ).fillna(0)
     )
-    conteo = (
-        errores.groupby(["pri_error_code", "pri_message_error"])
-        .size()
-        .reset_index(name="Cantidad")
+    resumen_total["diferencia"] = (
+        resumen_total["cantidad_actual"] - resumen_total["cantidad_cmp"]
     )
-    conteo.columns = ["Código Error", "Descripción", "Cantidad"]
     return px.bar(
-        conteo,
-        x="Código Error",
-        y="Cantidad",
-        color="Descripción",
-        title="Errores por Código y Descripción",
+        resumen_total,
+        x="pri_error_code",
+        y="diferencia",
+        color="pri_message_error",
+        labels={
+            "pri_error_code": "Código Error",
+            "diferencia": "Diferencia",
+            "pri_message_error": "Descripción",
+        },
+        title="Diferencia de errores entre periodos",
     )
 
