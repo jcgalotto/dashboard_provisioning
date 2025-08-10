@@ -1,5 +1,6 @@
 
 streamlit
+streamlit-autorefresh
 pandas
 plotly
 cx_Oracle

@@ -1,5 +1,6 @@
 import streamlit as st
 import plotly.express as px
+import pandas as pd
 
 
 def kpi_cards(df):
@@ -55,5 +56,25 @@ def error_comparison_bar_chart(resumen_actual, resumen_cmp):
             "pri_message_error": "Descripción",
         },
         title="Diferencia de errores entre periodos",
+    )
+
+
+def realtime_operations_chart(df):
+    """Line chart of operations grouped by minute."""
+    if df.empty or "pri_action_date" not in df.columns:
+        st.warning("No data available")
+        return px.Figure()
+    df_ts = (
+        df.assign(pri_action_date=pd.to_datetime(df["pri_action_date"]))
+        .groupby(pd.Grouper(key="pri_action_date", freq="1min"))
+        .size()
+        .reset_index(name="cantidad")
+    )
+    return px.line(
+        df_ts,
+        x="pri_action_date",
+        y="cantidad",
+        labels={"pri_action_date": "Hora", "cantidad": "Operaciones"},
+        title="Operaciones en tiempo real",
     )
 

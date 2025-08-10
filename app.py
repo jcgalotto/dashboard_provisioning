@@ -5,10 +5,12 @@ from services.data_service import get_transacciones, get_actions, get_services
 from visualizations.charts import (
     kpi_cards,
     error_comparison_bar_chart,
+    realtime_operations_chart,
 )
 from utils.helpers import normalize_error_message
 import datetime
 import pandas as pd
+from streamlit_autorefresh import st_autorefresh
 
 try:
     from st_aggrid import AgGrid
@@ -45,6 +47,14 @@ with st.sidebar:
         else:
 
             st.error("❌ Error al conectar")
+
+    st.header("⏱️ Actualización")
+    auto_refresh = st.checkbox("Auto-actualizar", value=True)
+    intervalo = st.number_input(
+        "Intervalo (segundos)", min_value=5, value=60, step=5
+    )
+    if auto_refresh:
+        st_autorefresh(interval=int(intervalo * 1000), key="data_refresh")
 
 
 # Mostrar log de conexión
@@ -129,6 +139,9 @@ if "db_conn" not in st.session_state:
     st.stop()
 df = get_transacciones(st.session_state["db_conn"], query)
 st.session_state["transacciones_df"] = df
+st.caption(
+    f"Última actualización: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+)
 
 if comparar:
     query_cmp = build_query(
@@ -157,6 +170,12 @@ if comparar:
 
 # KPIs
 kpi_cards(df)
+
+st.subheader("📈 Operaciones en tiempo real")
+st.plotly_chart(
+    realtime_operations_chart(df),
+    use_container_width=True,
+)
 
 if st.button("Ver detalle de transacciones"):
     st.switch_page("pages/detalle_transacciones.py")
