@@ -177,8 +177,12 @@ st.plotly_chart(
     use_container_width=True,
 )
 
-if st.button("Ver detalle de transacciones"):
-    st.switch_page("pages/detalle_transacciones.py")
+st.markdown(
+    "<a href='/detalle_transacciones' target='_blank'>"
+    "<button>Ver detalle de transacciones</button>"
+    "</a>",
+    unsafe_allow_html=True,
+)
 
 if comparar:
     st.subheader("📊 Comparativo de transacciones")
