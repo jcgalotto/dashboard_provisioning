@@ -9,6 +9,7 @@ from visualizations.charts import (
 )
 from utils.helpers import normalize_error_message
 import datetime
+from pathlib import Path
 import pandas as pd
 from streamlit_autorefresh import st_autorefresh
 
@@ -122,11 +123,13 @@ if comparar:
 else:
     fecha_ini_cmp = fecha_fin_cmp = None
 
-st.page_link(
-    "pages/operaciones_tiempo_real.py",
-    label="Ver operaciones en tiempo real",
-    icon="⚡",
-)
+page_path = Path(__file__).parent / "pages" / "operaciones_tiempo_real.py"
+if page_path.is_file():
+    st.page_link(
+        page_path,
+        label="Ver operaciones en tiempo real",
+        icon="⚡",
+    )
 
 # Ejecutar consulta
 if "db_conn" not in st.session_state:
