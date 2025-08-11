@@ -32,10 +32,10 @@ def kpi_cards(df: pd.DataFrame) -> None:
         total_pct = 0
 
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total", total, f"{total_pct:.2%}")
-    col2.metric("Pendiente", pendiente, f"{pendiente_pct:.2%}")
-    col3.metric("OK", ok, f"{ok_pct:.2%}")
-    col4.metric("Error", error, f"{error_pct:.2%}")
+    col1.metric("Total", total, f"{total_pct:.0%}")
+    col2.metric("Pendiente", pendiente, f"{pendiente_pct:.0%}")
+    col3.metric("OK", ok, f"{ok_pct:.0%}")
+    col4.metric("Error", error, f"{error_pct:.0%}")
 
 
 def error_comparison_bar_chart(

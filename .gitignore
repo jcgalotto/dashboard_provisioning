@@ -4,3 +4,5 @@
 /.idea/shelf/Uncommitted_changes_before_Update_at_7_8_2025_00_29__Changes_.xml
 /.idea/vcs.xml
 /.idea/workspace.xml
+__pycache__/
+*.pyc

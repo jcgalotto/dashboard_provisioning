@@ -171,15 +171,16 @@ if comparar:
 # KPIs
 kpi_cards(df)
 
-st.subheader("📈 Operaciones en tiempo real")
-st.plotly_chart(
-    realtime_operations_chart(df),
-    use_container_width=True,
+st.markdown(
+    "<a href='/operaciones_tiempo_real' target='_blank'>",
+    "<button>Ver operaciones en tiempo real</button>",
+    "</a>",
+    unsafe_allow_html=True,
 )
 
 st.markdown(
-    "<a href='/detalle_transacciones' target='_blank'>"
-    "<button>Ver detalle de transacciones</button>"
+    "<a href='/detalle_transacciones' target='_blank'>",
+    "<button>Ver detalle de transacciones</button>",
     "</a>",
     unsafe_allow_html=True,
 )
