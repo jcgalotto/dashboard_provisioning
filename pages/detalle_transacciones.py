@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import datetime
 from utils.helpers import normalize_error_message
+from dateutil import parser
 
 try:
     from st_aggrid import AgGrid
@@ -73,7 +74,10 @@ else:
                     if isinstance(valor, str) and valor.upper() == "SYSDATE":
                         valores.append("SYSDATE")
                     else:
-                        fecha = pd.to_datetime(valor)
+                        try:
+                            fecha = pd.to_datetime(valor)
+                        except (pd.errors.OutOfBoundsDatetime, ValueError, TypeError):
+                            fecha = parser.parse(str(valor))
                         valores.append(
                             f"TO_DATE('{fecha.strftime('%d-%m-%Y %H:%M:%S')}', 'DD-MM-YYYY HH24:MI:SS')"
                         )

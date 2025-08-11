@@ -4,3 +4,4 @@ streamlit-autorefresh
 pandas
 plotly
 cx_Oracle
+python-dateutil
