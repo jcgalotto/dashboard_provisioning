@@ -32,3 +32,22 @@ def get_services(conn, ne_id):
     df = pd.read_sql(query, conn, params={"ne_id": ne_id})
     df.columns = df.columns.str.lower()
     return df["pri_ne_service"].tolist()
+
+
+def get_realtime_transacciones(conn, start_time, ne_id=None, ne_group=None):
+    """Retrieve real-time transactions since ``start_time``."""
+    query = (
+        "SELECT pri_ne_id, pri_ne_group, pri_status, pri_error_code, pri_action_date "
+        "FROM swp_provisioning_interfaces "
+        "WHERE pri_action_date >= TO_DATE(:start_time, 'DD-MM-YYYY HH24:MI:SS')"
+    )
+    params = {"start_time": start_time.strftime("%d-%m-%Y %H:%M:%S")}
+    if ne_id:
+        query += " AND pri_ne_id = :ne_id"
+        params["ne_id"] = ne_id
+    if ne_group:
+        query += " AND pri_ne_group = :ne_group"
+        params["ne_group"] = ne_group
+    df = pd.read_sql(query, conn, params=params)
+    df.columns = df.columns.str.lower()
+    return df
