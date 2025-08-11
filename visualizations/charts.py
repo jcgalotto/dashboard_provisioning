@@ -2,8 +2,16 @@ import streamlit as st
 import plotly.express as px
 import pandas as pd
 
+# Explicitly export the public chart helpers so ``from visualizations.charts``
+# always exposes the expected functions even in older Python environments.
+__all__ = [
+    "kpi_cards",
+    "error_comparison_bar_chart",
+    "realtime_operations_chart",
+]
 
-def kpi_cards(df):
+
+def kpi_cards(df: pd.DataFrame) -> None:
     total = len(df)
     pendiente = len(df[df["pri_status"].isin(["K", "T", "PENDING"])])
     ok = len(df[df["pri_status"] == "O"])
@@ -30,7 +38,9 @@ def kpi_cards(df):
     col4.metric("Error", error, f"{error_pct:.2%}")
 
 
-def error_comparison_bar_chart(resumen_actual, resumen_cmp):
+def error_comparison_bar_chart(
+    resumen_actual: pd.DataFrame, resumen_cmp: pd.DataFrame
+) -> px.bar:
     if resumen_actual.empty and resumen_cmp.empty:
         st.warning("No data available")
         return px.Figure()
@@ -59,17 +69,25 @@ def error_comparison_bar_chart(resumen_actual, resumen_cmp):
     )
 
 
-def realtime_operations_chart(df):
-    """Line chart of operations grouped by minute."""
+def realtime_operations_chart(df: pd.DataFrame) -> px.line:
+    """Generate a real-time operations line chart.
+
+    The data frame is aggregated per minute using the ``pri_action_date``
+    column. When no data is provided a blank :class:`plotly.graph_objs.Figure`
+    is returned so importing the function never fails.
+    """
+
     if df.empty or "pri_action_date" not in df.columns:
         st.warning("No data available")
         return px.Figure()
+
     df_ts = (
         df.assign(pri_action_date=pd.to_datetime(df["pri_action_date"]))
         .groupby(pd.Grouper(key="pri_action_date", freq="1min"))
         .size()
         .reset_index(name="cantidad")
     )
+
     return px.line(
         df_ts,
         x="pri_action_date",
