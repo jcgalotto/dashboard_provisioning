@@ -122,6 +122,13 @@ if comparar:
 else:
     fecha_ini_cmp = fecha_fin_cmp = None
 
+st.markdown(
+    "<a href='/operaciones_tiempo_real' target='_blank'>"
+    "<button>Ver operaciones en tiempo real</button>"
+    "</a>",
+    unsafe_allow_html=True,
+)
+
 # Ejecutar consulta
 if "db_conn" not in st.session_state:
     st.warning("🔌 No hay conexión activa")
@@ -170,13 +177,6 @@ if comparar:
 
 # KPIs
 kpi_cards(df)
-
-st.markdown(
-    "<a href='/operaciones_tiempo_real' target='_blank'>",
-    "<button>Ver operaciones en tiempo real</button>",
-    "</a>",
-    unsafe_allow_html=True,
-)
 
 st.markdown(
     "<a href='/detalle_transacciones' target='_blank'>",
