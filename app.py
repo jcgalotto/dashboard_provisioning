@@ -122,11 +122,10 @@ if comparar:
 else:
     fecha_ini_cmp = fecha_fin_cmp = None
 
-st.markdown(
-    "<a href='/operaciones_tiempo_real' target='_blank'>"
-    "<button>Ver operaciones en tiempo real</button>"
-    "</a>",
-    unsafe_allow_html=True,
+st.page_link(
+    "pages/operaciones_tiempo_real.py",
+    label="Ver operaciones en tiempo real",
+    icon="⚡",
 )
 
 # Ejecutar consulta
@@ -178,11 +177,10 @@ if comparar:
 # KPIs
 kpi_cards(df)
 
-st.markdown(
-    "<a href='/detalle_transacciones' target='_blank'>",
-    "<button>Ver detalle de transacciones</button>",
-    "</a>",
-    unsafe_allow_html=True,
+st.page_link(
+    "pages/detalle_transacciones.py",
+    label="Ver detalle de transacciones",
+    icon="📄",
 )
 
 if comparar:
