@@ -2,11 +2,7 @@ import streamlit as st
 import pandas as pd
 import datetime
 from streamlit_autorefresh import st_autorefresh
-from services.data_service import (
-    get_realtime_transacciones,
-    get_ne_ids,
-    get_ne_groups,
-)
+from services.data_service import get_realtime_transacciones
 
 st.set_page_config(page_title="Operaciones en tiempo real")
 st.markdown(
@@ -24,40 +20,22 @@ if "db_conn" not in st.session_state:
     st.warning("🔌 No hay conexión activa")
     st.stop()
 
-running = st.session_state.get("rt_running", False)
+ne_id = st.text_input("NE ID", value=st.session_state.get("rt_ne_id", ""))
+ne_group = st.text_input("NE Group", value=st.session_state.get("rt_ne_group", ""))
 
-btn1, btn2 = st.columns(2)
-start_clicked = btn1.button("Iniciar proceso", disabled=running)
-stop_clicked = btn2.button("Detener proceso", disabled=not running)
-
-ne_ids = get_ne_ids(st.session_state["db_conn"])
-if not ne_ids:
-    st.info("Sin pri_ne_id disponibles")
-    st.stop()
-default_ne_id = st.session_state.get("rt_ne_id")
-ne_index = ne_ids.index(default_ne_id) if default_ne_id in ne_ids else 0
-ne_id = st.selectbox("pri_ne_id", ne_ids, index=ne_index)
-
-groups = get_ne_groups(st.session_state["db_conn"], ne_id)
-group_options = ["Todos"] + groups
-default_group = st.session_state.get("rt_ne_group") or "Todos"
-group_index = (
-    group_options.index(default_group) if default_group in group_options else 0
-)
-ne_group = st.selectbox("pri_ne_group", group_options, index=group_index)
-
-if start_clicked:
-    st.session_state["rt_running"] = True
-    st.session_state["rt_start_time"] = datetime.datetime.now()
-    st.session_state["rt_ne_id"] = ne_id
-    st.session_state["rt_ne_group"] = None if ne_group == "Todos" else ne_group
-if stop_clicked:
-    st.session_state["rt_running"] = False
+col1, col2 = st.columns(2)
+with col1:
+    if st.button("Iniciar"):
+        st.session_state["rt_running"] = True
+        st.session_state["rt_start_time"] = datetime.datetime.now()
+        st.session_state["rt_ne_id"] = ne_id
+        st.session_state["rt_ne_group"] = ne_group
+with col2:
+    if st.button("Detener"):
+        st.session_state["rt_running"] = False
 
 running = st.session_state.get("rt_running", False)
 start_time = st.session_state.get("rt_start_time")
-ne_id = st.session_state.get("rt_ne_id")
-ne_group = st.session_state.get("rt_ne_group")
 
 if running and start_time:
     st_autorefresh(interval=5000, key="rt_refresh")

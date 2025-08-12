@@ -34,28 +34,6 @@ def get_services(conn, ne_id):
     return df["pri_ne_service"].tolist()
 
 
-def get_ne_ids(conn):
-    """Retrieve distinct NE IDs available in the system."""
-    query = (
-        "SELECT DISTINCT pri_ne_id FROM swp_provisioning_interfaces "
-        "ORDER BY pri_ne_id"
-    )
-    df = pd.read_sql(query, conn)
-    df.columns = df.columns.str.lower()
-    return df["pri_ne_id"].tolist()
-
-
-def get_ne_groups(conn, ne_id):
-    """Retrieve distinct NE groups for a given NE ID."""
-    query = (
-        "SELECT DISTINCT pri_ne_group FROM swp_provisioning_interfaces "
-        "WHERE pri_ne_id = :ne_id"
-    )
-    df = pd.read_sql(query, conn, params={"ne_id": ne_id})
-    df.columns = df.columns.str.lower()
-    return df["pri_ne_group"].dropna().tolist()
-
-
 def get_realtime_transacciones(conn, start_time, ne_id=None, ne_group=None):
     """Retrieve real-time transactions since ``start_time``."""
     query = (
