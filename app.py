@@ -1,4 +1,8 @@
 import streamlit as st
+import datetime
+import pandas as pd
+import plotly.express as px
+
 from config.db_config import get_connection
 from data.query_builder import build_query
 from services.data_service import get_transacciones, get_actions, get_services
@@ -8,30 +12,30 @@ from visualizations.charts import (
     realtime_operations_chart,
 )
 from utils.helpers import normalize_error_message
-import datetime
-from pathlib import Path
-import pandas as pd
-from streamlit_autorefresh import st_autorefresh
 
 try:
-    from st_aggrid import AgGrid
-    HAS_AGGRID = True
-except ImportError:
-    HAS_AGGRID = False
+    from streamlit_autorefresh import st_autorefresh
+    HAS_AUTOREFRESH = True
+except Exception:
+    HAS_AUTOREFRESH = False
 
 st.set_page_config(page_title="Dashboard Provisioning", layout="wide")
 st.markdown(
     """
-    <style>
-    div[data-testid='stSidebarNav'] { display: none; }
-    [data-testid='stHeader'] { display: none; }
-    </style>
-    """,
+<style>
+[data-testid='stSidebarNav'] { display: none; }
+[data-testid='stHeader'] { display: none; }
+:root { --card-bg: #111418; --panel-bg:#0c0f13; --pill:#132538; }
+.block-container { padding-top: 1rem; }
+.kpi-card { background: var(--card-bg); border-radius: 16px; padding: 16px; box-shadow: 0 1px 0 #1f2937; }
+.topbar { background: var(--pill); padding: 10px 14px; border-radius: 12px; display:flex; align-items:center; gap:12px; }
+.pill { padding:6px 10px; border-radius: 999px; background:#0f172a; color:#cbd5e1; font-size:0.9rem; }
+</style>
+""",
     unsafe_allow_html=True,
 )
-st.title("📊 Dashboard Provisioning")
 
-# Configuración de conexión
+# --- Sidebar -----------------------------------------------------------------
 with st.sidebar:
     st.header("🔐 Conexión Oracle")
     host = st.text_input("Host")
@@ -42,32 +46,38 @@ with st.sidebar:
     if st.button("Conectar"):
         conn = get_connection(host, port, service_name, user, password)
         if conn:
-            st.session_state["connection_name"] = f"{host}:{port}/{service_name}"
             st.session_state["db_conn"] = conn
+            st.session_state["connection_name"] = f"{host}:{port}/{service_name}"
             st.success(f"✅ Conectado a {st.session_state['connection_name']}")
         else:
-
             st.error("❌ Error al conectar")
 
     st.header("⏱️ Actualización")
-    auto_refresh = st.checkbox("Auto-actualizar", value=True)
-    intervalo = st.number_input(
-        "Intervalo (segundos)", min_value=5, value=60, step=5
-    )
+    auto_refresh = st.checkbox("Auto-actualizar", value=False)
+    intervalo = st.number_input("Intervalo (segundos)", min_value=5, value=60, step=5)
     if auto_refresh:
-        st_autorefresh(interval=int(intervalo * 1000), key="data_refresh")
+        if HAS_AUTOREFRESH:
+            st_autorefresh(interval=int(intervalo * 1000), key="data_refresh")
+        else:
+            st.warning("Instala streamlit-autorefresh para habilitar esta opción")
 
+# --- Top bar -----------------------------------------------------------------
+connection_name = st.session_state.get("connection_name", "Desconectado")
+connected = "db_conn" in st.session_state
+status_color = "#16a34a" if connected else "#4b5563"
+st.markdown(
+    f"<div class='topbar'><h1 style='margin:0;flex:1'>Dashboard Provisioning</h1>"
+    f"<span class='pill' style='background:{status_color}'>{connection_name}</span></div>",
+    unsafe_allow_html=True,
+)
 
-# Mostrar log de conexión
-if "db_conn" not in st.session_state:
+# --- Stop if no connection ----------------------------------------------------
+if not connected:
     st.warning("🔌 No hay conexión activa")
+    st.page_link("pages/operaciones_tiempo_real.py", label="⚡ Operaciones en tiempo real", icon="⚡")
     st.stop()
 
-if "connection_name" in st.session_state:
-    st.info(f"🔗 Conectado a: {st.session_state['connection_name']}")
-
-
-# Parámetros de fecha y filtros
+# --- Filters ------------------------------------------------------------------
 now = datetime.datetime.now()
 with st.form("filtros"):
     col1, col2, col3 = st.columns(3)
@@ -116,13 +126,7 @@ with st.form("filtros"):
             )
     submit = st.form_submit_button("Consultar")
 
-page_path = Path(__file__).parent / "pages" / "operaciones_tiempo_real.py"
-if page_path.is_file():
-    st.page_link(
-        page_path,
-        label="Ver operaciones en tiempo real",
-        icon="⚡",
-    )
+st.page_link("pages/operaciones_tiempo_real.py", label="⚡ Operaciones en tiempo real", icon="⚡")
 
 if submit:
     st.session_state["run_query"] = True
@@ -143,10 +147,7 @@ if not ne_id:
     st.warning("Debe ingresar NE ID")
     st.stop()
 
-# Ejecutar consulta
-if "db_conn" not in st.session_state:
-    st.warning("🔌 No hay conexión activa")
-    st.stop()
+# --- Query execution ---------------------------------------------------------
 query = build_query(
     fecha_ini,
     fecha_fin,
@@ -155,14 +156,9 @@ query = build_query(
     selected_services or None,
 )
 
-if "db_conn" not in st.session_state:
-    st.warning("🔌 No hay conexión activa")
-    st.stop()
 df = get_transacciones(st.session_state["db_conn"], query)
 st.session_state["transacciones_df"] = df
-st.caption(
-    f"Última actualización: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-)
+st.caption(f"Última actualización: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
 if comparar:
     query_cmp = build_query(
@@ -177,62 +173,154 @@ else:
     query_cmp = ""
     df_cmp = pd.DataFrame()
 
-# Logs detallados
-st.write("📋 Log de ejecución")
-st.code(query, language="sql")
-st.success(f"Total de transacciones recuperadas: {len(df)}")
-
-if comparar:
-    st.write("📋 Log de ejecución - Periodo comparación")
-    st.code(query_cmp, language="sql")
-    st.success(
-        f"Total de transacciones periodo comparación: {len(df_cmp)}"
+# --- Row 1: KPI cards --------------------------------------------------------
+def render_kpi_card(title: str, value: str, delta: str | None = None) -> None:
+    delta_html = f"<div style='font-size:0.9rem;color:#9ca3af'>{delta}</div>" if delta else ""
+    st.markdown(
+        f"""
+<div class='kpi-card'>
+  <div style='font-size:0.9rem;color:#9ca3af'>{title}</div>
+  <div style='font-size:2rem;font-weight:700'>{value}</div>
+  {delta_html}
+</div>
+""",
+        unsafe_allow_html=True,
     )
 
-# KPIs
-kpi_cards(df)
+total = len(df)
+delta_total = None
+if comparar and len(df_cmp) > 0:
+    delta_val = (total - len(df_cmp)) / len(df_cmp) * 100
+    delta_total = f"{delta_val:+.1f}%"
+performance = (len(df[df["pri_status"] == "O"]) / total * 100) if total else 0
+errores = len(df[df["pri_status"] == "E"])
 
-st.page_link(
-    "pages/detalle_transacciones.py",
-    label="Ver detalle de transacciones",
-    icon="📄",
-)
+kpi_row = st.container()
+with kpi_row:
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        render_kpi_card("Total transacciones", f"{total}", delta_total)
+    with c2:
+        render_kpi_card("Nuevas", "Pendiente")
+    with c3:
+        render_kpi_card("Performance", f"{performance:.2f}%")
+    with c4:
+        render_kpi_card("Errores", f"{errores}")
 
-if comparar:
-    st.subheader("📊 Comparativo de transacciones")
+with st.expander("KPIs (legacy)"):
+    kpi_cards(df)
 
-    def resumen(df_base):
-        errores = df_base[df_base["pri_status"] == "E"].copy()
-        errores["pri_message_error"] = errores["pri_message_error"].apply(
-            normalize_error_message
+# --- Row 2: Charts -----------------------------------------------------------
+row2 = st.container()
+with row2:
+    col1, col2 = st.columns(2)
+    with col1:
+        def transacciones_time_chart(df_base: pd.DataFrame, start: datetime.datetime, end: datetime.datetime):
+            if df_base.empty or "pri_action_date" not in df_base.columns:
+                st.info("No data")
+                return px.Figure()
+            df_ts = df_base.assign(pri_action_date=pd.to_datetime(df_base["pri_action_date"]))
+            freq = "H" if (end - start) <= datetime.timedelta(days=1) else "D"
+            df_ts = (
+                df_ts.groupby(pd.Grouper(key="pri_action_date", freq=freq))
+                .size()
+                .reset_index(name="cantidad")
+            )
+            title = "Transacciones por hora" if freq == "H" else "Transacciones por día"
+            return px.line(
+                df_ts,
+                x="pri_action_date",
+                y="cantidad",
+                labels={"pri_action_date": "Fecha", "cantidad": "Transacciones"},
+                title=title,
+            )
+
+        st.plotly_chart(
+            transacciones_time_chart(df, fecha_ini, fecha_fin),
+            use_container_width=True,
         )
-        return (
-            errores.groupby(["pri_error_code", "pri_message_error"])
-            .size()
-            .reset_index(name="cantidad")
-        )
+    with col2:
+        error_mode = st.checkbox("Modo errores")
 
-    col_a, col_b = st.columns(2)
-    with col_a:
-        st.markdown("**Periodo Actual**")
-        st.metric("Operaciones", len(df))
-        resumen_actual = resumen(df)
-        if not resumen_actual.empty:
-            st.dataframe(resumen_actual)
-        else:
-            st.write("Sin errores")
-    with col_b:
-        st.markdown("**Periodo Comparación**")
-        st.metric("Operaciones", len(df_cmp))
-        resumen_cmp = resumen(df_cmp)
-        if not resumen_cmp.empty:
-            st.dataframe(resumen_cmp)
-        else:
-            st.write("Sin errores")
+        def resumen(df_base: pd.DataFrame) -> pd.DataFrame:
+            errores_df = df_base[df_base["pri_status"] == "E"].copy()
+            if errores_df.empty:
+                return pd.DataFrame(
+                    columns=["pri_error_code", "pri_message_error", "cantidad"]
+                )
+            errores_df["pri_message_error"] = errores_df["pri_message_error"].apply(
+                normalize_error_message
+            )
+            return (
+                errores_df.groupby(["pri_error_code", "pri_message_error"])
+                .size()
+                .reset_index(name="cantidad")
+            )
 
-    st.subheader("📈 Diferencia de errores")
-    st.plotly_chart(
-        error_comparison_bar_chart(resumen_actual, resumen_cmp),
-        use_container_width=True,
+        if error_mode:
+            resumen_actual = resumen(df)
+            if comparar:
+                resumen_cmp = resumen(df_cmp)
+                fig_err = error_comparison_bar_chart(resumen_actual, resumen_cmp)
+                st.plotly_chart(fig_err, use_container_width=True)
+            else:
+                if resumen_actual.empty:
+                    st.info("No hay errores")
+                else:
+                    fig_err = px.bar(
+                        resumen_actual,
+                        x="pri_error_code",
+                        y="cantidad",
+                        color="pri_message_error",
+                        labels={
+                            "pri_error_code": "Código",
+                            "cantidad": "Cantidad",
+                            "pri_message_error": "Descripción",
+                        },
+                        title="Errores por código",
+                    )
+                    st.plotly_chart(fig_err, use_container_width=True)
+        else:
+            if df.empty or "pri_status" not in df.columns:
+                st.info("No data")
+            else:
+                status_counts = (
+                    df["pri_status"].value_counts().reset_index()
+                    if not df.empty
+                    else pd.DataFrame({"index": [], "pri_status": []})
+                )
+                status_counts.columns = ["pri_status", "cantidad"]
+                fig_status = px.bar(
+                    status_counts,
+                    x="pri_status",
+                    y="cantidad",
+                    labels={"pri_status": "Estado", "cantidad": "Cantidad"},
+                    title="Transacciones por estado",
+                )
+                st.plotly_chart(fig_status, use_container_width=True)
+
+# --- Row 3: Logs -------------------------------------------------------------
+log_row = st.container()
+with log_row:
+    st.subheader("📋 Log de ejecución")
+    st.code(query, language="sql")
+    st.write(f"Total de transacciones recuperadas: {len(df)}")
+    if comparar:
+        st.code(query_cmp, language="sql")
+        st.write(f"Total de transacciones periodo comparación: {len(df_cmp)}")
+
+# --- Navigation --------------------------------------------------------------
+nav = st.container()
+with nav:
+    st.page_link(
+        "pages/detalle_transacciones.py",
+        label="📄 Ver detalle de transacciones",
+    )
+    st.page_link(
+        "pages/operaciones_tiempo_real.py",
+        label="⚡ Operaciones en tiempo real",
+        icon="⚡",
     )
 
+if __name__ == "__main__":
+    st.write("Use 'streamlit run app.py'")
