@@ -2,6 +2,7 @@ import streamlit as st
 import datetime
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 
 from config.db_config import get_connection
 from data.query_builder import build_query
@@ -18,6 +19,133 @@ try:
     HAS_AUTOREFRESH = True
 except Exception:
     HAS_AUTOREFRESH = False
+
+
+# --- Errores por código: helpers y gráfico ---
+
+
+def _prepare_error_code_counts(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Devuelve DataFrame con columnas:
+    pri_error_code | pri_message_error_norm | count
+    Filtra pri_status == 'E' y normaliza pri_message_error.
+    """
+    if df is None or df.empty:
+        return pd.DataFrame(columns=["pri_error_code", "pri_message_error_norm", "count"])
+
+    required = {"pri_status", "pri_error_code", "pri_message_error"}
+    if not required.issubset(set(df.columns)):
+        return pd.DataFrame(columns=["pri_error_code", "pri_message_error_norm", "count"])
+
+    err = df[df["pri_status"] == "E"].copy()
+    if err.empty:
+        return pd.DataFrame(columns=["pri_error_code", "pri_message_error_norm", "count"])
+
+    err["pri_message_error_norm"] = (
+        err["pri_message_error"].astype(str).fillna("").apply(normalize_error_message)
+    )
+    # conteo por código
+    counts = (
+        err.groupby("pri_error_code", dropna=False)
+        .size()
+        .reset_index(name="count")
+        .sort_values("count", ascending=False)
+    )
+    # mensaje más frecuente por código (normalizado)
+    top_msg = (
+        err.groupby(["pri_error_code", "pri_message_error_norm"])
+        .size()
+        .reset_index(name="n")
+        .sort_values(["pri_error_code", "n"], ascending=[True, False])
+        .drop_duplicates(subset=["pri_error_code"])
+        .rename(columns={"n": "msg_freq"})
+    )
+    out = counts.merge(top_msg[["pri_error_code", "pri_message_error_norm"]], on="pri_error_code", how="left")
+    return out
+
+
+def _most_frequent_message_per_code(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Devuelve mapping único por pri_error_code -> pri_message_error_norm (más frecuente).
+    """
+    if df is None or df.empty:
+        return pd.DataFrame(columns=["pri_error_code", "pri_message_error_norm"])
+    base = _prepare_error_code_counts(df)
+    return base[["pri_error_code", "pri_message_error_norm"]].drop_duplicates()
+
+
+def error_codes_bar(
+    df_actual: pd.DataFrame,
+    df_cmp: pd.DataFrame | None = None,
+    top_n: int = 10,
+    full: bool = False,
+) -> go.Figure:
+    """
+    Barras horizontales por pri_error_code. Si df_cmp no es None, añade serie de comparación.
+    """
+    cur = _prepare_error_code_counts(df_actual)
+    cmp_df = _prepare_error_code_counts(df_cmp) if df_cmp is not None else pd.DataFrame()
+
+    if cur.empty and (df_cmp is None or cmp_df.empty):
+        fig = go.Figure()
+        fig.add_annotation(
+            text="No data available", x=0.5, y=0.5, showarrow=False, xref="paper", yref="paper"
+        )
+        fig.update_layout(height=420, margin=dict(l=10, r=10, t=30, b=10))
+        return fig
+
+    # Definir etiquetas base
+    if full:
+        labels = cur["pri_error_code"].tolist() if not cur.empty else cmp_df["pri_error_code"].tolist()
+    else:
+        labels = (
+            cur["pri_error_code"].head(top_n).tolist()
+            if not cur.empty
+            else cmp_df["pri_error_code"].head(top_n).tolist()
+        )
+
+    # Series alineadas
+    s_actual = cur.set_index("pri_error_code").reindex(labels)["count"].fillna(0).astype(int)
+    s_cmp = None
+    if df_cmp is not None and not cmp_df.empty:
+        s_cmp = (
+            cmp_df.set_index("pri_error_code").reindex(labels)["count"].fillna(0).astype(int)
+        )
+
+    # Hover con mensaje normalizado
+    msg_map = cur.set_index("pri_error_code")["pri_message_error_norm"].to_dict()
+    hovertext = [f"{code}<br>{msg_map.get(code, '')}" for code in labels]
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Bar(
+            y=labels,
+            x=s_actual.values,
+            name="Periodo actual",
+            orientation="h",
+            hovertext=hovertext,
+            hoverinfo="text+x",
+        )
+    )
+    if s_cmp is not None:
+        fig.add_trace(
+            go.Bar(
+                y=labels,
+                x=s_cmp.values,
+                name="Periodo comparación",
+                orientation="h",
+            )
+        )
+
+    fig.update_layout(
+        barmode="group",
+        height=520 if full else 440,
+        margin=dict(l=10, r=10, t=40, b=10),
+        xaxis_title="Transacciones",
+        yaxis_title="Código de error",
+        legend=dict(orientation="h", y=-0.15),
+    )
+    return fig
 
 st.set_page_config(page_title="Dashboard Provisioning", layout="wide")
 st.markdown(
@@ -298,6 +426,44 @@ with row2:
                     title="Transacciones por estado",
                 )
                 st.plotly_chart(fig_status, use_container_width=True)
+
+# --- Errores por código (con Top N / Ver completo) ---
+st.subheader("🧱 Errores por código (Top N / Completo)")
+col_top, col_toggle = st.columns([3, 1])
+with col_top:
+    top_n_codes = st.slider("Top N códigos", 5, 30, 10, key="top_err_codes")
+with col_toggle:
+    ver_completo = st.toggle("Ver completo", value=False)
+
+fig_err_codes = error_codes_bar(
+    df,
+    df_cmp if comparar else None,
+    top_n=top_n_codes,
+    full=ver_completo,
+)
+st.plotly_chart(fig_err_codes, use_container_width=True)
+
+# --- Tabla de significado de errores ---
+st.markdown("**Mapa de códigos ↔ mensaje normalizado**")
+map_actual = _most_frequent_message_per_code(df)
+if comparar:
+    # Unir conteos actual y comparación
+    cur_counts = _prepare_error_code_counts(df)[["pri_error_code", "count"]].rename(columns={"count": "count_actual"})
+    cmp_counts = _prepare_error_code_counts(df_cmp)[["pri_error_code", "count"]].rename(columns={"count": "count_cmp"})
+    table = (
+        map_actual
+        .merge(cur_counts, on="pri_error_code", how="left")
+        .merge(cmp_counts, on="pri_error_code", how="left")
+    )
+else:
+    cur_counts = _prepare_error_code_counts(df)[["pri_error_code", "count"]].rename(columns={"count": "count_actual"})
+    table = map_actual.merge(cur_counts, on="pri_error_code", how="left")
+
+if table.empty:
+    st.info("No data available")
+else:
+    table = table.fillna({"count_actual": 0, "count_cmp": 0}).sort_values("count_actual", ascending=False)
+    st.dataframe(table, use_container_width=True)
 
 # --- Row 3: Error messages chart ---------------------------------------------
 error_row = st.container()
