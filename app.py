@@ -67,61 +67,54 @@ if "connection_name" in st.session_state:
     st.info(f"🔗 Conectado a: {st.session_state['connection_name']}")
 
 
-# Parámetros de fecha
+# Parámetros de fecha y filtros
 now = datetime.datetime.now()
-col1, col2, col3 = st.columns(3)
-with col1:
-    fecha_ini_fecha = st.date_input("Fecha Inicio", value=now.date())
-    fecha_ini_hora = st.time_input("Hora Inicio", value=datetime.time(0, 0))
-    fecha_ini = datetime.datetime.combine(fecha_ini_fecha, fecha_ini_hora)
-with col2:
-    fecha_fin_fecha = st.date_input("Fecha Fin", value=now.date())
-    fecha_fin_hora = st.time_input("Hora Fin", value=now.time())
-    fecha_fin = datetime.datetime.combine(fecha_fin_fecha, fecha_fin_hora)
-with col3:
-    ne_id = st.text_input("NE ID")
-    selected_services = selected_actions = None
+with st.form("filtros"):
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        fecha_ini_fecha = st.date_input("Fecha Inicio", value=now.date())
+        fecha_ini_hora = st.time_input("Hora Inicio", value=datetime.time(0, 0))
+    with col2:
+        fecha_fin_fecha = st.date_input("Fecha Fin", value=now.date())
+        fecha_fin_hora = st.time_input("Hora Fin", value=now.time())
+    with col3:
+        ne_id = st.text_input("NE ID")
+        selected_services = selected_actions = None
+        if ne_id:
+            services = get_services(st.session_state["db_conn"], ne_id)
+            selected_services = st.multiselect("Servicio", services)
+            if selected_services:
+                actions = get_actions(
+                    st.session_state["db_conn"], ne_id, selected_services
+                )
+                selected_actions = st.multiselect("Acción", actions)
 
-    if ne_id:
-        if "db_conn" not in st.session_state:
-            st.warning("🔌 No hay conexión activa")
-            st.stop()
-        services = get_services(st.session_state["db_conn"], ne_id)
-        selected_services = st.multiselect("Servicio", services)
-        if selected_services:
-            actions = get_actions(
-                st.session_state["db_conn"], ne_id, selected_services
+    comparar = st.checkbox("Comparar con otro periodo")
+    if comparar:
+        col4, col5 = st.columns(2)
+        with col4:
+            cmp_ini_fecha = st.date_input(
+                "Fecha Inicio Comparación",
+                value=fecha_ini_fecha,
+                key="cmp_ini_fecha",
             )
-            selected_actions = st.multiselect("Acción", actions)
-comparar = st.checkbox("Comparar con otro periodo")
-if comparar:
-    col4, col5 = st.columns(2)
-    with col4:
-        cmp_ini_fecha = st.date_input(
-            "Fecha Inicio Comparación",
-            value=fecha_ini_fecha,
-            key="cmp_ini_fecha",
-        )
-        cmp_ini_hora = st.time_input(
-            "Hora Inicio Comparación",
-            value=datetime.time(0, 0),
-            key="cmp_ini_hora",
-        )
-        fecha_ini_cmp = datetime.datetime.combine(cmp_ini_fecha, cmp_ini_hora)
-    with col5:
-        cmp_fin_fecha = st.date_input(
-            "Fecha Fin Comparación",
-            value=fecha_fin_fecha,
-            key="cmp_fin_fecha",
-        )
-        cmp_fin_hora = st.time_input(
-            "Hora Fin Comparación",
-            value=fecha_fin_hora,
-            key="cmp_fin_hora",
-        )
-        fecha_fin_cmp = datetime.datetime.combine(cmp_fin_fecha, cmp_fin_hora)
-else:
-    fecha_ini_cmp = fecha_fin_cmp = None
+            cmp_ini_hora = st.time_input(
+                "Hora Inicio Comparación",
+                value=datetime.time(0, 0),
+                key="cmp_ini_hora",
+            )
+        with col5:
+            cmp_fin_fecha = st.date_input(
+                "Fecha Fin Comparación",
+                value=fecha_fin_fecha,
+                key="cmp_fin_fecha",
+            )
+            cmp_fin_hora = st.time_input(
+                "Hora Fin Comparación",
+                value=fecha_fin_hora,
+                key="cmp_fin_hora",
+            )
+    submit = st.form_submit_button("Consultar")
 
 page_path = Path(__file__).parent / "pages" / "operaciones_tiempo_real.py"
 if page_path.is_file():
@@ -130,6 +123,25 @@ if page_path.is_file():
         label="Ver operaciones en tiempo real",
         icon="⚡",
     )
+
+if submit:
+    st.session_state["run_query"] = True
+
+if not st.session_state.get("run_query"):
+    st.info("Complete los filtros y presione Consultar para obtener datos")
+    st.stop()
+
+fecha_ini = datetime.datetime.combine(fecha_ini_fecha, fecha_ini_hora)
+fecha_fin = datetime.datetime.combine(fecha_fin_fecha, fecha_fin_hora)
+if comparar:
+    fecha_ini_cmp = datetime.datetime.combine(cmp_ini_fecha, cmp_ini_hora)
+    fecha_fin_cmp = datetime.datetime.combine(cmp_fin_fecha, cmp_fin_hora)
+else:
+    fecha_ini_cmp = fecha_fin_cmp = None
+
+if not ne_id:
+    st.warning("Debe ingresar NE ID")
+    st.stop()
 
 # Ejecutar consulta
 if "db_conn" not in st.session_state:
