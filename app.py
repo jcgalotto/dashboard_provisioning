@@ -299,7 +299,67 @@ with row2:
                 )
                 st.plotly_chart(fig_status, use_container_width=True)
 
-# --- Row 3: Logs -------------------------------------------------------------
+# --- Row 3: Error messages chart ---------------------------------------------
+error_row = st.container()
+with error_row:
+    st.subheader("📊 Errores por mensaje")
+    resumen_actual_full = resumen(df)
+    if resumen_actual_full.empty:
+        st.info("No hay errores")
+    else:
+        top_actual = (
+            resumen_actual_full.groupby("pri_message_error")["cantidad"]
+            .sum()
+            .reset_index()
+            .sort_values("cantidad", ascending=False)
+        )
+        if comparar and not df_cmp.empty:
+            resumen_cmp_full = resumen(df_cmp)
+            top_cmp = (
+                resumen_cmp_full.groupby("pri_message_error")["cantidad"]
+                .sum()
+                .reset_index()
+            )
+            merged = (
+                top_actual.merge(
+                    top_cmp, on="pri_message_error", how="left", suffixes=("_actual", "_cmp")
+                )
+                .fillna(0)
+                .sort_values("cantidad_actual", ascending=False)
+                .head(10)
+            )
+            merged_long = merged.melt(
+                id_vars="pri_message_error",
+                value_vars=["cantidad_actual", "cantidad_cmp"],
+                var_name="Periodo",
+                value_name="Cantidad",
+            )
+            merged_long["Periodo"] = merged_long["Periodo"].map(
+                {"cantidad_actual": "Periodo Actual", "cantidad_cmp": "Periodo Comparación"}
+            )
+            fig_msg = px.bar(
+                merged_long,
+                y="pri_message_error",
+                x="Cantidad",
+                color="Periodo",
+                orientation="h",
+                labels={"pri_message_error": "Mensaje", "Cantidad": "Transacciones"},
+                title="Top errores por mensaje",
+            )
+            st.plotly_chart(fig_msg, use_container_width=True)
+        else:
+            top_actual = top_actual.head(10)
+            fig_msg = px.bar(
+                top_actual,
+                y="pri_message_error",
+                x="cantidad",
+                orientation="h",
+                labels={"pri_message_error": "Mensaje", "cantidad": "Transacciones"},
+                title="Top errores por mensaje",
+            )
+            st.plotly_chart(fig_msg, use_container_width=True)
+
+# --- Row 4: Logs -------------------------------------------------------------
 log_row = st.container()
 with log_row:
     st.subheader("📋 Log de ejecución")
