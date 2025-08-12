@@ -44,23 +44,32 @@ def _prepare_error_code_counts(df: pd.DataFrame) -> pd.DataFrame:
     err["pri_message_error_norm"] = (
         err["pri_message_error"].astype(str).fillna("").apply(normalize_error_message)
     )
+    # conversión del código a string sin decimales
+    err["pri_error_code_str"] = (
+        err["pri_error_code"].astype(str).str.replace(r"\.0$", "", regex=True)
+    )
     # conteo por código
     counts = (
-        err.groupby("pri_error_code", dropna=False)
+        err.groupby("pri_error_code_str", dropna=False)
         .size()
         .reset_index(name="count")
         .sort_values("count", ascending=False)
     )
     # mensaje más frecuente por código (normalizado)
     top_msg = (
-        err.groupby(["pri_error_code", "pri_message_error_norm"])
+        err.groupby(["pri_error_code_str", "pri_message_error_norm"])
         .size()
         .reset_index(name="n")
-        .sort_values(["pri_error_code", "n"], ascending=[True, False])
-        .drop_duplicates(subset=["pri_error_code"])
+        .sort_values(["pri_error_code_str", "n"], ascending=[True, False])
+        .drop_duplicates(subset=["pri_error_code_str"])
         .rename(columns={"n": "msg_freq"})
     )
-    out = counts.merge(top_msg[["pri_error_code", "pri_message_error_norm"]], on="pri_error_code", how="left")
+    out = counts.merge(
+        top_msg[["pri_error_code_str", "pri_message_error_norm"]],
+        on="pri_error_code_str",
+        how="left",
+    )
+    out = out.rename(columns={"pri_error_code_str": "pri_error_code"})
     return out
 
 
@@ -112,9 +121,17 @@ def error_codes_bar(
             cmp_df.set_index("pri_error_code").reindex(labels)["count"].fillna(0).astype(int)
         )
 
-    # Hover con mensaje normalizado
-    msg_map = cur.set_index("pri_error_code")["pri_message_error_norm"].to_dict()
-    hovertext = [f"{code}<br>{msg_map.get(code, '')}" for code in labels]
+    # Hover con mensaje normalizado y conteo
+    msg_map = (
+        pd.concat([cur, cmp_df])[ ["pri_error_code", "pri_message_error_norm"] ]
+        .drop_duplicates()
+        .set_index("pri_error_code")["pri_message_error_norm"]
+        .to_dict()
+    )
+    hovertext_actual = [
+        f"Código: {code}<br>Mensaje: {msg_map.get(code, '')}<br>Transacciones: {s_actual.loc[code]}"
+        for code in labels
+    ]
 
     fig = go.Figure()
     fig.add_trace(
@@ -123,17 +140,23 @@ def error_codes_bar(
             x=s_actual.values,
             name="Periodo actual",
             orientation="h",
-            hovertext=hovertext,
+            hovertext=hovertext_actual,
             hoverinfo="text+x",
         )
     )
     if s_cmp is not None:
+        hovertext_cmp = [
+            f"Código: {code}<br>Mensaje: {msg_map.get(code, '')}<br>Transacciones: {s_cmp.loc[code]}"
+            for code in labels
+        ]
         fig.add_trace(
             go.Bar(
                 y=labels,
                 x=s_cmp.values,
                 name="Periodo comparación",
                 orientation="h",
+                hovertext=hovertext_cmp,
+                hoverinfo="text+x",
             )
         )
 
@@ -145,6 +168,7 @@ def error_codes_bar(
         yaxis_title="Código de error",
         legend=dict(orientation="h", y=-0.15),
     )
+    fig.update_yaxes(type="category")
     return fig
 
 st.set_page_config(page_title="Dashboard Provisioning", layout="wide")
