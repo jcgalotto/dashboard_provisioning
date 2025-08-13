@@ -7,12 +7,13 @@ import plotly.graph_objects as go
 from config.db_config import get_connection
 from data.query_builder import build_query
 from services.data_service import get_transacciones, get_actions, get_services
-from visualizations.charts import (
-    kpi_cards,
-    error_comparison_bar_chart,
-    realtime_operations_chart,
-)
+# Import placeholders (realtime chart linked as página)
 from utils.helpers import normalize_error_message
+
+# Paleta común para todos los gráficos
+PALETTE = ["#FF7F50", "#F4A261", "#E9C46A", "#2A9D8F", "#264653"]
+px.defaults.template = "plotly_dark"
+px.defaults.color_discrete_sequence = PALETTE
 
 try:
     from streamlit_autorefresh import st_autorefresh
@@ -89,54 +90,75 @@ def error_codes_bar(
     top_n: int = 10,
     full: bool = False,
 ) -> go.Figure:
+    """Barras horizontales por ``pri_error_code``.
+    Si ``df_cmp`` está presente añade serie de comparación.
     """
-    Barras horizontales por pri_error_code. Si df_cmp no es None, añade serie de comparación.
-    """
-    cur = _prepare_error_code_counts(df_actual)
-    cmp_df = _prepare_error_code_counts(df_cmp) if df_cmp is not None else pd.DataFrame()
 
-    if cur.empty and (df_cmp is None or cmp_df.empty):
-        fig = go.Figure()
-        fig.add_annotation(
-            text="No data available", x=0.5, y=0.5, showarrow=False, xref="paper", yref="paper"
+    def _prep_counts(df: pd.DataFrame | None) -> pd.DataFrame:
+        if df is None or df.empty:
+            return pd.DataFrame(
+                columns=["pri_error_code_str", "pri_message_error_norm", "count"]
+            )
+        err = df[df["pri_status"] == "E"].copy()
+        if err.empty:
+            return pd.DataFrame(
+                columns=["pri_error_code_str", "pri_message_error_norm", "count"]
+            )
+        err["pri_error_code_str"] = (
+            err["pri_error_code"].astype(str).str.replace(r"\.0$", "", regex=True)
         )
-        fig.update_layout(height=420, margin=dict(l=10, r=10, t=30, b=10))
-        return fig
-
-    # Todos los códigos presentes en cualquiera de los periodos
-    all_codes = pd.unique(
-        pd.concat([cur["pri_error_code"], cmp_df["pri_error_code"]], ignore_index=True)
-    ).tolist()
-
-    # Series alineadas al conjunto completo de códigos
-    s_actual = (
-        cur.set_index("pri_error_code").reindex(all_codes)["count"].fillna(0).astype(int)
-    )
-    s_cmp = None
-    if df_cmp is not None and not cmp_df.empty:
-        s_cmp = (
-            cmp_df.set_index("pri_error_code").reindex(all_codes)["count"].fillna(0).astype(int)
+        err["pri_message_error_norm"] = (
+            err["pri_message_error"].astype(str).fillna("").apply(normalize_error_message)
+        )
+        counts = (
+            err.groupby("pri_error_code_str", dropna=False)
+            .size()
+            .reset_index(name="count")
+            .sort_values("count", ascending=False)
+        )
+        msg_map = (
+            err.groupby(["pri_error_code_str", "pri_message_error_norm"])
+            .size()
+            .reset_index(name="n")
+            .sort_values(["pri_error_code_str", "n"], ascending=[True, False])
+            .drop_duplicates(subset=["pri_error_code_str"])
+        )
+        return counts.merge(
+            msg_map[["pri_error_code_str", "pri_message_error_norm"]],
+            on="pri_error_code_str",
+            how="left",
         )
 
-    # Si no se requiere vista completa, limitar a top_n con mayor conteo del periodo actual
-    if not full:
-        labels = s_actual.sort_values(ascending=False).head(top_n).index.tolist()
-        s_actual = s_actual.loc[labels]
-        if s_cmp is not None:
-            s_cmp = s_cmp.loc[labels]
+    cur = _prep_counts(df_actual)
+    cmp_df = _prep_counts(df_cmp) if df_cmp is not None else pd.DataFrame()
+
+    if full:
+        labels = (
+            cur["pri_error_code_str"].tolist()
+            if not cur.empty
+            else cmp_df["pri_error_code_str"].tolist()
+        )
     else:
-        labels = all_codes
+        labels = (
+            cur["pri_error_code_str"].head(top_n).tolist()
+            if not cur.empty
+            else cmp_df["pri_error_code_str"].head(top_n).tolist()
+        )
 
-    # Hover con mensaje normalizado y conteo (mensaje más frecuente por código)
-    raw_for_msg = pd.concat([df_actual, df_cmp]) if df_cmp is not None else df_actual
-    msg_map_df = _most_frequent_message_per_code(raw_for_msg)
-    msg_map = (
-        msg_map_df.set_index("pri_error_code")["pri_message_error_norm"].to_dict()
-        if not msg_map_df.empty
-        else {}
+    s_actual = (
+        cur.set_index("pri_error_code_str").reindex(labels)["count"].fillna(0).astype(int)
     )
-    hovertext_actual = [
-        f"Código: {code}<br>Mensaje: {msg_map.get(code, '')}<br>Transacciones: {s_actual.loc[code]}"
+    s_cmp = (
+        cmp_df.set_index("pri_error_code_str").reindex(labels)["count"].fillna(0).astype(int)
+        if not cmp_df.empty
+        else None
+    )
+
+    msg_map = cur.set_index("pri_error_code_str")[
+        "pri_message_error_norm"
+    ].to_dict()
+    hovertext = [
+        f"Código: {code}<br>Mensaje: {msg_map.get(code, '')}<br>Transacciones: {s_actual.get(code, 0)}"
         for code in labels
     ]
 
@@ -147,13 +169,14 @@ def error_codes_bar(
             x=s_actual.values,
             name="Periodo actual",
             orientation="h",
-            hovertext=hovertext_actual,
+            hovertext=hovertext,
             hoverinfo="text+x",
+            marker_color=PALETTE[0],
         )
     )
     if s_cmp is not None:
         hovertext_cmp = [
-            f"Código: {code}<br>Mensaje: {msg_map.get(code, '')}<br>Transacciones: {s_cmp.loc[code]}"
+            f"Código: {code}<br>Mensaje: {msg_map.get(code, '')}<br>Transacciones: {s_cmp.get(code, 0)}"
             for code in labels
         ]
         fig.add_trace(
@@ -164,6 +187,7 @@ def error_codes_bar(
                 orientation="h",
                 hovertext=hovertext_cmp,
                 hoverinfo="text+x",
+                marker_color=PALETTE[2],
             )
         )
 
@@ -173,10 +197,24 @@ def error_codes_bar(
         margin=dict(l=10, r=10, t=40, b=10),
         xaxis_title="Transacciones",
         yaxis_title="Código de error",
+        yaxis=dict(type="category"),
         legend=dict(orientation="h", y=-0.15),
     )
-    fig.update_yaxes(type="category")
     return fig
+
+
+def resumen(df_base: pd.DataFrame) -> pd.DataFrame:
+    errores_df = df_base[df_base["pri_status"] == "E"].copy()
+    if errores_df.empty:
+        return pd.DataFrame(columns=["pri_error_code", "pri_message_error", "cantidad"])
+    errores_df["pri_message_error"] = errores_df["pri_message_error"].apply(
+        normalize_error_message
+    )
+    return (
+        errores_df.groupby(["pri_error_code", "pri_message_error"])
+        .size()
+        .reset_index(name="cantidad")
+    )
 
 st.set_page_config(page_title="Dashboard Provisioning", layout="wide")
 st.markdown(
@@ -184,11 +222,14 @@ st.markdown(
 <style>
 [data-testid='stSidebarNav'] { display: none; }
 [data-testid='stHeader'] { display: none; }
-:root { --card-bg: #111418; --panel-bg:#0c0f13; --pill:#132538; }
-.block-container { padding-top: 1rem; }
-.kpi-card { background: var(--card-bg); border-radius: 16px; padding: 16px; box-shadow: 0 1px 0 #1f2937; }
-.topbar { background: var(--pill); padding: 10px 14px; border-radius: 12px; display:flex; align-items:center; gap:12px; }
-.pill { padding:6px 10px; border-radius: 999px; background:#0f172a; color:#cbd5e1; font-size:0.9rem; }
+.block-container { padding-top: 0rem; }
+.kpi-card{background:#2B3040;border-radius:12px;padding:16px;box-shadow:0 2px 6px rgba(0,0,0,0.2);}
+.topbar{background:#FF7F50;color:#EAEAEA;padding:10px 16px;border-radius:8px;display:flex;justify-content:space-between;align-items:center;}
+.status-pill{padding:4px 10px;border-radius:999px;font-size:0.9rem;color:#EAEAEA;}
+.status-pill.ok{background:#16a34a;}
+.status-pill.bad{background:#dc2626;}
+button{transition:filter 0.3s;}
+button:hover{filter:brightness(1.1);}
 </style>
 """,
     unsafe_allow_html=True,
@@ -223,10 +264,10 @@ with st.sidebar:
 # --- Top bar -----------------------------------------------------------------
 connection_name = st.session_state.get("connection_name", "Desconectado")
 connected = "db_conn" in st.session_state
-status_color = "#16a34a" if connected else "#4b5563"
+pill_class = "ok" if connected else "bad"
 st.markdown(
-    f"<div class='topbar'><h1 style='margin:0;flex:1'>Dashboard Provisioning</h1>"
-    f"<span class='pill' style='background:{status_color}'>{connection_name}</span></div>",
+    f"<div class='topbar'><span style='font-size:1.4rem;font-weight:600'>Dashboard Provisioning</span>"
+    f"<span class='status-pill {pill_class}'>{connection_name}</span></div>",
     unsafe_allow_html=True,
 )
 
@@ -238,54 +279,47 @@ if not connected:
 
 # --- Filters ------------------------------------------------------------------
 now = datetime.datetime.now()
+st.subheader("Filtros")
 with st.form("filtros"):
     col1, col2, col3 = st.columns(3)
     with col1:
-        fecha_ini_fecha = st.date_input("Fecha Inicio", value=now.date())
-        fecha_ini_hora = st.time_input("Hora Inicio", value=datetime.time(0, 0))
+        fecha_ini_fecha = st.date_input("Fecha Inicio", value=now.date(), key="fecha_ini_fecha")
+        fecha_ini_hora = st.time_input("Hora Inicio", value=datetime.time(0, 0), key="fecha_ini_hora")
     with col2:
-        fecha_fin_fecha = st.date_input("Fecha Fin", value=now.date())
-        fecha_fin_hora = st.time_input("Hora Fin", value=now.time())
+        fecha_fin_fecha = st.date_input("Fecha Fin", value=now.date(), key="fecha_fin_fecha")
+        fecha_fin_hora = st.time_input("Hora Fin", value=now.time(), key="fecha_fin_hora")
     with col3:
-        ne_id = st.text_input("NE ID")
+        ne_id = st.text_input("NE ID", key="ne_id")
+    with st.expander("Filtros avanzados"):
         selected_services = selected_actions = None
         if ne_id:
             services = get_services(st.session_state["db_conn"], ne_id)
-            selected_services = st.multiselect("Servicio", services)
+            selected_services = st.multiselect("Servicio", services, key="servicio")
             if selected_services:
-                actions = get_actions(
-                    st.session_state["db_conn"], ne_id, selected_services
-                )
-                selected_actions = st.multiselect("Acción", actions)
-
-    comparar = st.checkbox("Comparar con otro periodo")
-    if comparar:
-        col4, col5 = st.columns(2)
-        with col4:
-            cmp_ini_fecha = st.date_input(
-                "Fecha Inicio Comparación",
-                value=fecha_ini_fecha,
-                key="cmp_ini_fecha",
-            )
-            cmp_ini_hora = st.time_input(
-                "Hora Inicio Comparación",
-                value=datetime.time(0, 0),
-                key="cmp_ini_hora",
-            )
-        with col5:
-            cmp_fin_fecha = st.date_input(
-                "Fecha Fin Comparación",
-                value=fecha_fin_fecha,
-                key="cmp_fin_fecha",
-            )
-            cmp_fin_hora = st.time_input(
-                "Hora Fin Comparación",
-                value=fecha_fin_hora,
-                key="cmp_fin_hora",
-            )
-    submit = st.form_submit_button("Consultar")
+                actions = get_actions(st.session_state["db_conn"], ne_id, selected_services)
+                selected_actions = st.multiselect("Acción", actions, key="accion")
+        comparar = st.checkbox("Comparar con otro periodo", key="comparar")
+        if comparar:
+            col4, col5 = st.columns(2)
+            with col4:
+                cmp_ini_fecha = st.date_input("Fecha Inicio Comparación", value=fecha_ini_fecha, key="cmp_ini_fecha")
+                cmp_ini_hora = st.time_input("Hora Inicio Comparación", value=datetime.time(0, 0), key="cmp_ini_hora")
+            with col5:
+                cmp_fin_fecha = st.date_input("Fecha Fin Comparación", value=fecha_fin_fecha, key="cmp_fin_fecha")
+                cmp_fin_hora = st.time_input("Hora Fin Comparación", value=fecha_fin_hora, key="cmp_fin_hora")
+    b1, b2 = st.columns(2)
+    with b1:
+        submit = st.form_submit_button("Consultar")
+    with b2:
+        reset = st.form_submit_button("Reset filtros")
 
 st.page_link("pages/operaciones_tiempo_real.py", label="⚡ Operaciones en tiempo real", icon="⚡")
+
+if reset:
+    for key in list(st.session_state.keys()):
+        if key not in ("db_conn", "connection_name"):
+            del st.session_state[key]
+    st.experimental_rerun()
 
 if submit:
     st.session_state["run_query"] = True
@@ -351,23 +385,21 @@ delta_total = None
 if comparar and len(df_cmp) > 0:
     delta_val = (total - len(df_cmp)) / len(df_cmp) * 100
     delta_total = f"{delta_val:+.1f}%"
-performance = (len(df[df["pri_status"] == "O"]) / total * 100) if total else 0
-errores = len(df[df["pri_status"] == "E"])
+ok_count = len(df[df["pri_status"] == "O"])
+pend_count = len(df[df["pri_status"] == "N"])
+err_count = len(df[df["pri_status"] == "E"])
 
 kpi_row = st.container()
 with kpi_row:
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        render_kpi_card("Total transacciones", f"{total}", delta_total)
+        render_kpi_card("Total", f"{total}", delta_total)
     with c2:
-        render_kpi_card("Nuevas", "Pendiente")
+        render_kpi_card("OK", f"{ok_count}")
     with c3:
-        render_kpi_card("Performance", f"{performance:.2f}%")
+        render_kpi_card("Pendiente", f"{pend_count}")
     with c4:
-        render_kpi_card("Errores", f"{errores}")
-
-with st.expander("KPIs (legacy)"):
-    kpi_cards(df)
+        render_kpi_card("Error", f"{err_count}")
 
 # --- Row 2: Charts -----------------------------------------------------------
 row2 = st.container()
@@ -399,72 +431,29 @@ with row2:
             use_container_width=True,
         )
     with col2:
-        error_mode = st.checkbox("Modo errores")
-
-        def resumen(df_base: pd.DataFrame) -> pd.DataFrame:
-            errores_df = df_base[df_base["pri_status"] == "E"].copy()
-            if errores_df.empty:
-                return pd.DataFrame(
-                    columns=["pri_error_code", "pri_message_error", "cantidad"]
-                )
-            errores_df["pri_message_error"] = errores_df["pri_message_error"].apply(
-                normalize_error_message
-            )
-            return (
-                errores_df.groupby(["pri_error_code", "pri_message_error"])
-                .size()
-                .reset_index(name="cantidad")
-            )
-
-        if error_mode:
-            resumen_actual = resumen(df)
-            if comparar:
-                resumen_cmp = resumen(df_cmp)
-                fig_err = error_comparison_bar_chart(resumen_actual, resumen_cmp)
-                st.plotly_chart(fig_err, use_container_width=True)
-            else:
-                if resumen_actual.empty:
-                    st.info("No hay errores")
-                else:
-                    fig_err = px.bar(
-                        resumen_actual,
-                        x="pri_error_code",
-                        y="cantidad",
-                        color="pri_message_error",
-                        labels={
-                            "pri_error_code": "Código",
-                            "cantidad": "Cantidad",
-                            "pri_message_error": "Descripción",
-                        },
-                        title="Errores por código",
-                    )
-                    st.plotly_chart(fig_err, use_container_width=True)
+        if df.empty or "pri_status" not in df.columns:
+            st.info("No data")
         else:
-            if df.empty or "pri_status" not in df.columns:
-                st.info("No data")
-            else:
-                status_counts = (
-                    df["pri_status"].value_counts().reset_index()
-                    if not df.empty
-                    else pd.DataFrame({"index": [], "pri_status": []})
-                )
-                status_counts.columns = ["pri_status", "cantidad"]
-                fig_status = px.bar(
-                    status_counts,
-                    x="pri_status",
-                    y="cantidad",
-                    labels={"pri_status": "Estado", "cantidad": "Cantidad"},
-                    title="Transacciones por estado",
-                )
-                st.plotly_chart(fig_status, use_container_width=True)
+            status_counts = df["pri_status"].value_counts().reset_index()
+            status_counts.columns = ["pri_status", "cantidad"]
+            fig_status = px.bar(
+                status_counts,
+                x="pri_status",
+                y="cantidad",
+                labels={"pri_status": "Estado", "cantidad": "Transacciones"},
+                title="Transacciones por estado",
+                color="pri_status",
+                color_discrete_sequence=PALETTE,
+            )
+            st.plotly_chart(fig_status, use_container_width=True)
 
-# --- Errores por código (con Top N / Ver completo) ---
-st.subheader("🧱 Errores por código (Top N / Completo)")
+# --- Errores por código ------------------------------------------------------
+st.subheader("🧱 Errores por código")
 col_top, col_toggle = st.columns([3, 1])
 with col_top:
     top_n_codes = st.slider("Top N códigos", 5, 30, 10, key="top_err_codes")
 with col_toggle:
-    ver_completo = st.toggle("Ver completo", value=False)
+    ver_completo = st.checkbox("Ver completo", value=False, key="ver_completo")
 
 fig_err_codes = error_codes_bar(
     df,
@@ -478,7 +467,6 @@ st.plotly_chart(fig_err_codes, use_container_width=True)
 st.markdown("**Mapa de códigos ↔ mensaje normalizado**")
 map_actual = _most_frequent_message_per_code(df)
 if comparar:
-    # Unir conteos actual y comparación
     cur_counts = _prepare_error_code_counts(df)[["pri_error_code", "count"]].rename(columns={"count": "count_actual"})
     cmp_counts = _prepare_error_code_counts(df_cmp)[["pri_error_code", "count"]].rename(columns={"count": "count_cmp"})
     table = (
@@ -495,66 +483,8 @@ if table.empty:
 else:
     table = table.fillna({"count_actual": 0, "count_cmp": 0}).sort_values("count_actual", ascending=False)
     st.dataframe(table, use_container_width=True)
-
-# --- Row 3: Error messages chart ---------------------------------------------
-error_row = st.container()
-with error_row:
-    st.subheader("📊 Errores por mensaje")
-    resumen_actual_full = resumen(df)
-    if resumen_actual_full.empty:
-        st.info("No hay errores")
-    else:
-        top_actual = (
-            resumen_actual_full.groupby("pri_message_error")["cantidad"]
-            .sum()
-            .reset_index()
-            .sort_values("cantidad", ascending=False)
-        )
-        if comparar and not df_cmp.empty:
-            resumen_cmp_full = resumen(df_cmp)
-            top_cmp = (
-                resumen_cmp_full.groupby("pri_message_error")["cantidad"]
-                .sum()
-                .reset_index()
-            )
-            merged = (
-                top_actual.merge(
-                    top_cmp, on="pri_message_error", how="left", suffixes=("_actual", "_cmp")
-                )
-                .fillna(0)
-                .sort_values("cantidad_actual", ascending=False)
-                .head(10)
-            )
-            merged_long = merged.melt(
-                id_vars="pri_message_error",
-                value_vars=["cantidad_actual", "cantidad_cmp"],
-                var_name="Periodo",
-                value_name="Cantidad",
-            )
-            merged_long["Periodo"] = merged_long["Periodo"].map(
-                {"cantidad_actual": "Periodo Actual", "cantidad_cmp": "Periodo Comparación"}
-            )
-            fig_msg = px.bar(
-                merged_long,
-                y="pri_message_error",
-                x="Cantidad",
-                color="Periodo",
-                orientation="h",
-                labels={"pri_message_error": "Mensaje", "Cantidad": "Transacciones"},
-                title="Top errores por mensaje",
-            )
-            st.plotly_chart(fig_msg, use_container_width=True)
-        else:
-            top_actual = top_actual.head(10)
-            fig_msg = px.bar(
-                top_actual,
-                y="pri_message_error",
-                x="cantidad",
-                orientation="h",
-                labels={"pri_message_error": "Mensaje", "cantidad": "Transacciones"},
-                title="Top errores por mensaje",
-            )
-            st.plotly_chart(fig_msg, use_container_width=True)
+    csv = table.to_csv(index=False).encode("utf-8")
+    st.download_button("Descargar CSV", data=csv, file_name="errores.csv", mime="text/csv")
 
 # --- Row 4: Logs -------------------------------------------------------------
 log_row = st.container()
