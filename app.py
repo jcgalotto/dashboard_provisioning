@@ -103,30 +103,37 @@ def error_codes_bar(
         fig.update_layout(height=420, margin=dict(l=10, r=10, t=30, b=10))
         return fig
 
-    # Definir etiquetas base
-    if full:
-        labels = cur["pri_error_code"].tolist() if not cur.empty else cmp_df["pri_error_code"].tolist()
-    else:
-        labels = (
-            cur["pri_error_code"].head(top_n).tolist()
-            if not cur.empty
-            else cmp_df["pri_error_code"].head(top_n).tolist()
-        )
+    # Todos los códigos presentes en cualquiera de los periodos
+    all_codes = pd.unique(
+        pd.concat([cur["pri_error_code"], cmp_df["pri_error_code"]], ignore_index=True)
+    ).tolist()
 
-    # Series alineadas
-    s_actual = cur.set_index("pri_error_code").reindex(labels)["count"].fillna(0).astype(int)
+    # Series alineadas al conjunto completo de códigos
+    s_actual = (
+        cur.set_index("pri_error_code").reindex(all_codes)["count"].fillna(0).astype(int)
+    )
     s_cmp = None
     if df_cmp is not None and not cmp_df.empty:
         s_cmp = (
-            cmp_df.set_index("pri_error_code").reindex(labels)["count"].fillna(0).astype(int)
+            cmp_df.set_index("pri_error_code").reindex(all_codes)["count"].fillna(0).astype(int)
         )
 
-    # Hover con mensaje normalizado y conteo
+    # Si no se requiere vista completa, limitar a top_n con mayor conteo del periodo actual
+    if not full:
+        labels = s_actual.sort_values(ascending=False).head(top_n).index.tolist()
+        s_actual = s_actual.loc[labels]
+        if s_cmp is not None:
+            s_cmp = s_cmp.loc[labels]
+    else:
+        labels = all_codes
+
+    # Hover con mensaje normalizado y conteo (mensaje más frecuente por código)
+    raw_for_msg = pd.concat([df_actual, df_cmp]) if df_cmp is not None else df_actual
+    msg_map_df = _most_frequent_message_per_code(raw_for_msg)
     msg_map = (
-        pd.concat([cur, cmp_df])[ ["pri_error_code", "pri_message_error_norm"] ]
-        .drop_duplicates()
-        .set_index("pri_error_code")["pri_message_error_norm"]
-        .to_dict()
+        msg_map_df.set_index("pri_error_code")["pri_message_error_norm"].to_dict()
+        if not msg_map_df.empty
+        else {}
     )
     hovertext_actual = [
         f"Código: {code}<br>Mensaje: {msg_map.get(code, '')}<br>Transacciones: {s_actual.loc[code]}"
