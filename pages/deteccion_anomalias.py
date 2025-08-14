@@ -32,6 +32,11 @@ ne_id = st.session_state.get("ne_id")
 selected_actions = st.session_state.get("selected_actions")
 selected_services = st.session_state.get("selected_services")
 
+# Fecha inicial obligatoria para construir la consulta
+if not fecha_ini:
+    st.error("Falta definir la fecha inicial. Configurá los filtros en la pantalla principal.")
+    st.stop()
+
 # Si no existen, podés agregar inputs rápidos acá o dejar que vengan seteados desde la home
 query = build_query(fecha_ini, fecha_fin, ne_id, selected_actions, selected_services)
 df = get_transacciones(st.session_state["db_conn"], query)
