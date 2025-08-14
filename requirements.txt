@@ -5,3 +5,6 @@ pandas
 plotly
 cx_Oracle
 python-dateutil
+
+scikit-learn
+joblib

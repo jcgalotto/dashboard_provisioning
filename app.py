@@ -325,6 +325,7 @@ with st.expander("KPIs (vista legacy)"):
 
 st.page_link("pages/operaciones_tiempo_real.py", label="⚡ Operaciones en tiempo real", icon="⚡")
 st.page_link("pages/detalle_transacciones.py", label="📄 Ver detalle de transacciones")
+st.page_link("pages/deteccion_anomalias.py", label="🧭 Detección de anomalías", icon="🧭")
 
 if __name__ == "__main__":
     st.write("Use 'streamlit run app.py'")
