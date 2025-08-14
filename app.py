@@ -85,7 +85,13 @@ def error_codes_bar(df_actual: pd.DataFrame,
                     top_n: int = 10,
                     full: bool = False) -> go.Figure:
     cur = _prep_error_code_counts(df_actual)
-    cmp_df = _prep_error_code_counts(df_cmp) if df_cmp is not None else pd.DataFrame()
+    cmp_df = _prep_error_code_counts(df_cmp)
+
+    if cur.empty and cmp_df.empty:
+        fig = go.Figure()
+        fig.add_annotation(text="No data available", x=0.5, y=0.5, showarrow=False, xref="paper", yref="paper")
+        fig.update_layout(height=520 if full else 440, margin=dict(l=10, r=10, t=40, b=10))
+        return fig
 
     if full:
         labels = cur["pri_error_code_str"].tolist() if not cur.empty else cmp_df["pri_error_code_str"].tolist()
