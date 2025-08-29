@@ -1,8 +1,6 @@
 import streamlit as st
 import pandas as pd
-import datetime
-from utils.helpers import normalize_error_message
-from dateutil import parser
+from utils.helpers import normalize_error_message, generar_insert
 
 try:
     from st_aggrid import AgGrid
@@ -54,43 +52,7 @@ else:
         st.dataframe(df_filtrado)
 
     if not df_filtrado.empty:
-        columnas = ", ".join(df_filtrado.columns)
-
-        inserts = []
-        for _, fila in df_filtrado.iterrows():
-            valores = []
-            for col, valor in fila.items():
-                if col.lower() == "pri_id":
-                    valores.append(
-                        "(SELECT NVL(MAX(pri_id), 0) + 1 FROM swp_provisioning_interfaces)"
-                    )
-                elif pd.isna(valor):
-                    valores.append("NULL")
-                elif (
-                    "date" in col.lower()
-                    or pd.api.types.is_datetime64_any_dtype(df_filtrado[col])
-                    or isinstance(valor, (pd.Timestamp, datetime.datetime, datetime.date))
-                ):
-                    if isinstance(valor, str) and valor.upper() == "SYSDATE":
-                        valores.append("SYSDATE")
-                    else:
-                        try:
-                            fecha = pd.to_datetime(valor)
-                        except (pd.errors.OutOfBoundsDatetime, ValueError, TypeError):
-                            fecha = parser.parse(str(valor))
-                        valores.append(
-                            f"TO_DATE('{fecha.strftime('%d-%m-%Y %H:%M:%S')}', 'DD-MM-YYYY HH24:MI:SS')"
-                        )
-                elif col.lower() == "pri_request":
-                    texto = str(valor).replace("\n", "").replace("\r", "")
-                    valores.append("'" + texto.replace("'", "''") + "'")
-                elif isinstance(valor, str):
-                    valores.append("'" + valor.replace("'", "''") + "'")
-                else:
-                    valores.append(str(valor))
-            inserts.append(
-                f"INSERT INTO swp_provisioning_interfaces ({columnas}) VALUES ({', '.join(valores)});",
-            )
+        inserts = [generar_insert(fila.to_dict()) for _, fila in df_filtrado.iterrows()]
 
         sql_contenido = "\n".join(inserts)
 
