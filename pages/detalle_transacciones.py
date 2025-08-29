@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
-from utils.helpers import normalize_error_message, generar_insert
+from utils.helpers import normalize_error_message
+from utils.sql_utils import generar_insert
 
 try:
     from st_aggrid import AgGrid
