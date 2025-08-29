@@ -21,6 +21,30 @@ try:
 except Exception:
     HAS_AUTOREFRESH = False
 
+
+def ensure_conn():
+    """
+    Devuelve una conexión Oracle viva.
+    Si la conexión actual está caída, reintenta usando st.session_state['conn_params'].
+    """
+    conn = st.session_state.get("db_conn")
+    try:
+        if conn:
+            # oracledb/cx_Oracle proveen ping()
+            conn.ping()
+            return conn
+    except Exception:
+        pass  # ping falló → reconectar
+
+    params = st.session_state.get("conn_params")
+    if not params:
+        st.error("No hay parámetros de conexión en sesión. Conectate desde el sidebar.")
+        st.stop()
+
+    new_conn = get_connection(**params)
+    st.session_state["db_conn"] = new_conn
+    return new_conn
+
 st.set_page_config(page_title="Dashboard Provisioning", layout="wide")
 st.markdown("""
 <style>
@@ -175,20 +199,27 @@ with st.sidebar:
     if st.button("Conectar"):
         conn = get_connection(host, port, service_name, user, password)
         if conn:
-            st.session_state["db_conn"] = conn
             st.session_state["connection_name"] = f"{host}:{port}/{service_name}"
-            st.success("✅ Conectado")
+            st.session_state["db_conn"] = conn
+            st.session_state["conn_params"] = {
+                "host": host,
+                "port": port,
+                "service_name": service_name,
+                "user": user,
+                "password": password,
+            }
+            st.success(f"✅ Conectado a {st.session_state['connection_name']}")
         else:
             st.error("❌ Error al conectar")
 
     st.header("⏱️ Actualización")
-    auto_refresh = st.checkbox("Auto-actualizar", value=True)
+    auto_refresh = st.checkbox("Auto-actualizar", value=False)
     intervalo = st.number_input("Intervalo (segundos)", min_value=5, value=60, step=5)
     st.button("Reset filtros", on_click=lambda: st.session_state.clear())
     if auto_refresh and HAS_AUTOREFRESH:
-        st_autorefresh(interval=int(intervalo*1000), key="data_refresh")
+        st_autorefresh(interval=int(intervalo * 1000), key="data_refresh")
     elif auto_refresh and not HAS_AUTOREFRESH:
-        st.warning("⚠️ Falta 'streamlit-autorefresh'")
+        st.warning("⚠️ Instala 'streamlit-autorefresh' para usar auto-actualizar")
 
 
 st.title("📊 Dashboard Provisioning")
@@ -205,62 +236,84 @@ if "db_conn" not in st.session_state:
 
 now = datetime.datetime.now()
 with st.form("filtros"):
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
-        fecha_ini_fecha = st.date_input("Fecha inicio", value=now.date())
-        fecha_ini_hora = st.time_input("Hora inicio", value=datetime.time(0,0))
+        fecha_ini_fecha = st.date_input("Fecha inicio", value=now.date(), key="fi_date")
+        fecha_ini_hora = st.time_input("Hora inicio", value=datetime.time(0, 0), key="fi_time")
     with col2:
-        fecha_fin_fecha = st.date_input("Fecha fin", value=now.date())
-        fecha_fin_hora = st.time_input("Hora fin", value=now.time())
+        fecha_fin_fecha = st.date_input("Fecha fin", value=now.date(), key="ff_date")
+        fecha_fin_hora = st.time_input("Hora fin", value=now.time(), key="ff_time")
     with col3:
-        ne_id = st.text_input("NE ID")
-    with st.expander("Filtros avanzados"):
-        selected_services = selected_actions = None
-        if ne_id:
-            services = get_services(st.session_state["db_conn"], ne_id)
-            selected_services = st.multiselect("Servicio", services)
-            if selected_services:
-                actions = get_actions(st.session_state["db_conn"], ne_id, selected_services)
-                selected_actions = st.multiselect("Acción", actions)
-        comparar = st.checkbox("Comparar con otro periodo")
-        if comparar:
-            col4, col5 = st.columns(2)
-            with col4:
-                cmp_ini_fecha = st.date_input("Fecha inicio comparación", value=fecha_ini_fecha)
-                cmp_ini_hora = st.time_input("Hora inicio comparación", value=datetime.time(0,0))
-            with col5:
-                cmp_fin_fecha = st.date_input("Fecha fin comparación", value=fecha_fin_fecha)
-                cmp_fin_hora = st.time_input("Hora fin comparación", value=fecha_fin_hora)
-    submitted = st.form_submit_button("Consultar")
+        ne_id = st.text_input("NE ID", key="ne_id")
+    with col4:
+        comparar = st.checkbox("Comparar con otro periodo", key="comparar")
 
-if not submitted and "run_query" not in st.session_state:
-    st.info("Complete los filtros y presione Consultar para obtener datos")
+    if comparar:
+        cc1, cc2 = st.columns(2)
+        with cc1:
+            cmp_ini_fecha = st.date_input("Fecha inicio (comparación)", value=now.date(), key="cmp_fi_date")
+            cmp_ini_hora = st.time_input("Hora inicio (comparación)", value=datetime.time(0,0), key="cmp_fi_time")
+        with cc2:
+            cmp_fin_fecha = st.date_input("Fecha fin (comparación)", value=now.date(), key="cmp_ff_date")
+            cmp_fin_hora = st.time_input("Hora fin (comparación)", value=now.time(), key="cmp_ff_time")
+
+    selected_services = selected_actions = None
+    if ne_id:
+        conn = ensure_conn()
+        services = get_services(conn, ne_id)
+        selected_services = st.multiselect("Servicio", services)
+        if selected_services:
+            actions = get_actions(conn, ne_id, selected_services)
+            selected_actions = st.multiselect("Acción", actions)
+
+    submitted = st.form_submit_button("Aplicar filtros")
+
+# Si es el primer render y no hay datos todavía, esperar a que el usuario aplique filtros
+if not submitted and "transacciones_df" not in st.session_state:
+    st.info("Definí filtros y presioná **Aplicar filtros**.")
     st.stop()
 
-if submitted:
-    st.session_state["run_query"] = True
-
-fecha_ini = datetime.datetime.combine(fecha_ini_fecha, fecha_ini_hora)
-fecha_fin = datetime.datetime.combine(fecha_fin_fecha, fecha_fin_hora)
-if 'comparar' in locals() and comparar:
-    fecha_ini_cmp = datetime.datetime.combine(cmp_ini_fecha, cmp_ini_hora)
-    fecha_fin_cmp = datetime.datetime.combine(cmp_fin_fecha, cmp_fin_hora)
+# Combinar fechas a datetime
+fecha_ini = datetime.datetime.combine(st.session_state["fi_date"], st.session_state["fi_time"])
+fecha_fin = datetime.datetime.combine(st.session_state["ff_date"], st.session_state["ff_time"])
+if st.session_state.get("comparar"):
+    fecha_ini_cmp = datetime.datetime.combine(st.session_state["cmp_fi_date"], st.session_state["cmp_fi_time"])
+    fecha_fin_cmp = datetime.datetime.combine(st.session_state["cmp_ff_date"], st.session_state["cmp_ff_time"])
 else:
     comparar = False
     fecha_ini_cmp = fecha_fin_cmp = None
 
-if not ne_id:
-    st.warning("Debe ingresar NE ID")
-    st.stop()
+# Query principal
+conn = ensure_conn()
+query = build_query(
+    fecha_ini,
+    fecha_fin,
+    ne_id or None,
+    selected_actions or None,
+    selected_services or None,
+)
+df = get_transacciones(conn, query)
+st.session_state["transacciones_df"] = df
 
-query = build_query(fecha_ini, fecha_fin, ne_id, selected_actions, selected_services)
-df = get_transacciones(st.session_state["db_conn"], query)
+# Si hay comparación:
 if comparar:
-    query_cmp = build_query(fecha_ini_cmp, fecha_fin_cmp, ne_id, selected_actions, selected_services)
-    df_cmp = get_transacciones(st.session_state["db_conn"], query_cmp)
+    conn = ensure_conn()
+    query_cmp = build_query(
+        fecha_ini_cmp,
+        fecha_fin_cmp,
+        ne_id or None,
+        selected_actions or None,
+        selected_services or None,
+    )
+    df_cmp = get_transacciones(conn, query_cmp)
 else:
     query_cmp = ""
     df_cmp = pd.DataFrame()
+
+st.caption(f"Última actualización: {datetime.datetime.now():%Y-%m-%d %H:%M:%S}")
+st.success(f"Total de transacciones recuperadas: {len(df)}")
+if comparar:
+    st.success(f"Total periodo comparación: {len(df_cmp)}")
 
 kpi_cards(df)
 
@@ -320,7 +373,6 @@ if comparar and not df_cmp.empty:
     with st.expander("Comparación de códigos de error entre periodos"):
         st.plotly_chart(error_comparison_bar_chart(resumen_actual, resumen_cmp), use_container_width=True)
 
-st.caption(f"Última actualización: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 st.write("📋 Log de ejecución")
 st.code(query, language="sql")
 if comparar and query_cmp:
