@@ -1,20 +1,40 @@
-
 # Dashboard Provisioning
 
-Este dashboard permite monitorear transacciones en tiempo real desde una base Oracle.
+Proyecto migrado a arquitectura de dos capas con **FastAPI** y **React**.
 
-## Cómo ejecutar
+## Requisitos
+- Docker y docker-compose
 
-1. Instalar dependencias:
-```
-pip install -r requirements.txt
-```
+## Ejecución
 
-2. Ejecutar:
-```
-streamlit run app.py
-```
+1. Copiar `.env.example` a `.env` y ajustar variables.
+2. Construir y ejecutar contenedores:
+   ```bash
+   docker compose up --build
+   ```
+3. Navegar a [http://localhost](http://localhost).
 
-3. Asegúrate de tener Oracle Instant Client instalado y configurado.
+## Estructura
+- `api/` – Backend FastAPI con conexión Oracle y WebSockets.
+- `web/` – Frontend React + TypeScript (Vite).
+- `ops/` – Configuración de Nginx.
 
----
+## Desarrollo
+- Backend:
+  ```bash
+  cd api
+  uvicorn app.main:app --reload
+  ```
+- Frontend:
+  ```bash
+  cd web
+  npm install
+  npm run dev
+  ```
+
+## Tests
+- Python: `pytest -q`
+- Frontend: `npm test`
+
+## Nota
+Las consultas a Oracle requieren Instant Client o el modo *thin* de `oracledb`.
