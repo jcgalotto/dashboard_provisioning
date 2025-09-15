@@ -8,5 +8,7 @@ __pycache__/
 *.pyc
 node_modules/
 .env
+.env.local
+*.bak
 web/dist/
 web/package-lock.json
