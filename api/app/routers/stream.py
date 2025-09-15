@@ -3,7 +3,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, WebSocket
 
-from ..core.config import get_settings
+from ..core import config
 
 router = APIRouter(prefix="/logs", tags=["logs"])
 
@@ -11,8 +11,7 @@ router = APIRouter(prefix="/logs", tags=["logs"])
 @router.websocket("/stream")
 async def stream_logs(ws: WebSocket):
     await ws.accept()
-    settings = get_settings()
-    path = Path(settings.LOG_FILE_PATH)
+    path = Path(config.LOG_FILE_PATH)
     if not path.exists():
         await ws.close(code=1000)
         return

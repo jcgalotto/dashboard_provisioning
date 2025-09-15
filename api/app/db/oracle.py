@@ -5,17 +5,15 @@ try:
 except Exception:  # pragma: no cover
     import cx_Oracle  # type: ignore
 
-from ..core.config import get_settings
-
-settings = get_settings()
+from ..core import config
 
 try:  # pragma: no cover - no client in tests
     pool: cx_Oracle.SessionPool | None = cx_Oracle.SessionPool(
-        user=settings.ORACLE_USER,
-        password=settings.ORACLE_PASSWORD,
-        dsn=settings.ORACLE_DSN,
-        min=settings.ORACLE_POOL_MIN,
-        max=settings.ORACLE_POOL_MAX,
+        user=config.ORACLE_USER,
+        password=config.ORACLE_PASSWORD,
+        dsn=config.ORACLE_DSN,
+        min=config.ORACLE_POOL_MIN,
+        max=config.ORACLE_POOL_MAX,
         increment=1,
         threaded=True,
         getmode=cx_Oracle.SPOOL_ATTRVAL_WAIT,
