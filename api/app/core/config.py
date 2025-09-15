@@ -1,4 +1,5 @@
 from functools import lru_cache
+
 from pydantic_settings import BaseSettings
 
 
@@ -11,6 +12,7 @@ class Settings(BaseSettings):
     JWT_SECRET: str = "change_me"
     JWT_EXPIRES_MIN: int = 60
     LOG_FILE_PATH: str = "/var/log/app/app.log"
+    ALLOW_ORIGINS: str = "*"
 
     class Config:
         env_file = ".env"

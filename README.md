@@ -32,6 +32,19 @@ Proyecto migrado a arquitectura de dos capas con **FastAPI** y **React**.
   npm run dev
   ```
 
+### Variables de entorno
+Ver `.env.example` para configurar conexión Oracle, JWT y rutas.
+
+### Rutas API
+- `GET /healthz`
+- `GET /provisioning/interfaces?page=1&page_size=50`
+
+Ejemplo:
+
+```bash
+curl -H "Authorization: Bearer <token>" "http://localhost:8000/provisioning/interfaces?page=1&page_size=10"
+```
+
 ## Tests
 - Python: `pytest -q`
 - Frontend: `npm test`
