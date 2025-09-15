@@ -9,8 +9,8 @@ from ..core.config import get_settings
 
 settings = get_settings()
 
-try:
-    pool = cx_Oracle.SessionPool(
+try:  # pragma: no cover - no client in tests
+    pool: cx_Oracle.SessionPool | None = cx_Oracle.SessionPool(
         user=settings.ORACLE_USER,
         password=settings.ORACLE_PASSWORD,
         dsn=settings.ORACLE_DSN,
@@ -20,39 +20,51 @@ try:
         threaded=True,
         getmode=cx_Oracle.SPOOL_ATTRVAL_WAIT,
     )
-except Exception:  # pragma: no cover - if client not installed
+except Exception:  # pragma: no cover
     pool = None
 
 
-def fetch_all(query: str, params: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+def _execute(query: str, params: Dict[str, Any]) -> List[Dict[str, Any]]:
     if pool is None:
         return []
     with pool.acquire() as connection:
         with connection.cursor() as cursor:
-            cursor.execute(query, params or {})
-            columns = [col[0].lower() for col in cursor.description]
+            cursor.execute(query, params)
+            columns = [c[0].lower() for c in cursor.description]
             return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
 
-def fetch_one(query: str, params: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
-    if pool is None:
-        return None
-    with pool.acquire() as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(query, params or {})
-            row = cursor.fetchone()
-            if row:
-                columns = [col[0].lower() for col in cursor.description]
-                return dict(zip(columns, row))
-    return None
+def fetch_all(
+    query: str,
+    params: Optional[Dict[str, Any]] = None,
+    limit: Optional[int] = None,
+    offset: Optional[int] = None,
+) -> List[Dict[str, Any]]:
+    params = params or {}
+    if limit is not None or offset is not None:
+        try:
+            paginated = f"{query} OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY"
+            params = {**params, "offset": offset or 0, "limit": limit or 0}
+            return _execute(paginated, params)
+        except Exception:  # pragma: no cover
+            inner = f"SELECT q.*, ROW_NUMBER() OVER (ORDER BY 1) rn FROM ({query}) q"
+            paginated = (
+                "SELECT * FROM ("
+                + inner
+                + ") WHERE rn > :offset AND rn <= :offset_plus"
+            )
+            params = {
+                **params,
+                "offset": offset or 0,
+                "offset_plus": (offset or 0) + (limit or 0),
+            }
+            return _execute(paginated, params)
+    return _execute(query, params)
 
 
-def fetch_page(query: str, params: Dict[str, Any], limit: int, offset: int) -> List[Dict[str, Any]]:
-    if pool is None:
-        return []
-    paginated_query = (
-        f"SELECT * FROM (SELECT q.*, ROWNUM rn FROM ({query}) q WHERE ROWNUM <= :limit_plus)" " WHERE rn > :offset"
-    )
-    params = dict(params)
-    params.update({"limit_plus": offset + limit, "offset": offset})
-    return fetch_all(paginated_query, params)
+def fetch_one(
+    query: str, params: Optional[Dict[str, Any]] = None
+) -> Optional[Dict[str, Any]]:
+    params = params or {}
+    rows = fetch_all(query, params)
+    return rows[0] if rows else None

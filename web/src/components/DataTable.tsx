@@ -1,8 +1,7 @@
-import { useEffect } from 'react'
 import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 
 interface DataTableProps<T> {
-  columns: ColumnDef<T, any>[]
+  columns: ColumnDef<T, unknown>[]
   data: T[]
 }
 

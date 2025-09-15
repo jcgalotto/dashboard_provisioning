@@ -1,0 +1,18 @@
+name: API
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - run: pip install -r api/requirements.txt pytest
+      - run: ruff api
+      - run: black --check api
+      - run: isort --check-only api
+      - run: mypy api
+      - run: pytest -q api

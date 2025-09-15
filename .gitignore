@@ -6,3 +6,7 @@
 /.idea/workspace.xml
 __pycache__/
 *.pyc
+node_modules/
+.env
+web/dist/
+web/package-lock.json

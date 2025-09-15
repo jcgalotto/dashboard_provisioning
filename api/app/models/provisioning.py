@@ -1,8 +1,10 @@
 from datetime import datetime
+from typing import List
+
 from pydantic import BaseModel
 
 
-class Provisioning(BaseModel):
+class InterfaceRow(BaseModel):
     pri_id: int
     pri_cellular_number: str
     pri_status: str
@@ -12,10 +14,11 @@ class Provisioning(BaseModel):
     pri_ne_service: str | None = None
 
 
-class ProvisioningFilter(BaseModel):
-    msisdn: str | None = None
-    status: str | None = None
-    error_code: str | None = None
-    ne_service: str | None = None
-    date_from: datetime | None = None
-    date_to: datetime | None = None
+class InterfacesResponse(BaseModel):
+    total_count: int
+    rows: List[InterfaceRow]
+
+
+class StatsItem(BaseModel):
+    group_key: str | None = None
+    total: int
